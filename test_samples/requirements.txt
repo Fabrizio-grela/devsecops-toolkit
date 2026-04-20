@@ -1,0 +1,5 @@
+# Estas son librerías súper seguras... ¿no?
+flask==2.2.2
+requests==2.19.0
+django==2.1.1
+urllib3==1.25.8

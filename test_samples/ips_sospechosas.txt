@@ -1,0 +1,2 @@
+# Servidor de pruebas C2 (Malware/Botnet)
+ip_peligrosa = "185.130.104.231"
