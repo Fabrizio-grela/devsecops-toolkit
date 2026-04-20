@@ -15,7 +15,7 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 ### 🧩 Módulos Incluidos:
 
 * **🔑 Secrets & Leaks:** Escanea archivos en busca de claves de API, tokens de AWS, contraseñas y otros secretos "hardcoded" que nunca deberían estar en el código.
-* **☢️ SAST (Static Application Security Testing):** Analiza el código Python buscando funciones peligrosas (como `eval` o `os.system`) y malas prácticas que podrían permitir inyecciones.
+* **☢️ SAST (Static Application Security Testing): Auditoría multilingüe (Python, JS, Java, PHP, C/C++) para detectar funciones peligrosas, inyecciones de código y fallos de lógica.
 * **🐛 SCA (Software Composition Analysis):** Revisa tu archivo `requirements.txt` y compara tus librerías con bases de datos de vulnerabilidades conocidas (CVE).
 * **🏗️ IaC Scanner (Infrastructure as Code):** Audita archivos `Dockerfile` y configuraciones de infraestructura para detectar configuraciones inseguras (ej: correr como root o exponer puertos sensibles).
 * **🌐 Threat Intel:** Integración con **VirusTotal** para verificar si las IPs o dominios mencionados en el código tienen reportes de actividad maliciosa.
