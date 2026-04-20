@@ -37,8 +37,8 @@ La herramienta está diseñada para ser instalada como un comando global del sis
 2. Otorga permisos de ejecución al script:
    ```bash
    chmod +x instalar.sh
-3.Ejecuta el instalador: ./instalar.sh
-4.Ahora puedes ejecutar la herramienta simplemente escribiendo devsec.
+3. Ejecuta el instalador: `instalar.sh`
+4. Ahora puedes ejecutar la herramienta simplemente escribiendo `devsec`.
 
 💻 Modo de Uso
 DevSecOps Toolkit cuenta con dos formas de ejecución:
