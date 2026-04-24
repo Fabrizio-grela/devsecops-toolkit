@@ -36,19 +36,20 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 🐧 Linux & 🍎 macOS (Código Fuente)
 1. Cloná el repositorio:
 
-git clone https://github.com/TU_USUARIO/TU_REPO.git
-cd TU_REPO
+ git clone https://github.com/Fabrizio-grela/devsecops-toolkit.git
+
+ cd TU_REPO
 
 2. Instalá las dependencias necesarias:
 
-pip install -r requirements.txt
+ pip install -r requirements.txt
 
 3. Dale permisos al instalador y ejecutalo:
 
-chmod +x instalar.sh
-./instalar.sh
+ chmod +x instalar.sh
+ ./instalar.sh
 
-4. g¡Listo! Ahora podés ejecutar la herramienta simplemente escribiendo devsec en cualquier terminal.
+4. ¡Listo! Ahora podés ejecutar la herramienta simplemente escribiendo devsec en cualquier terminal.
 
 💻 Modo de Uso
 DevSecOps Toolkit cuenta con dos formas de ejecución:
