@@ -39,7 +39,7 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
    git clone https://github.com/Fabrizio-grela/devsecops-toolkit.git
 
    cd devsecops-toolkit
-   
+
 2. Instalá las dependencias necesarias:
 
    pip install -r requirements.txt
@@ -47,6 +47,7 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 3. Dale permisos al instalador y ejecutalo:
 
    chmod +x instalar.sh
+   
    ./instalar.sh
 
 4. ¡Listo! Ahora podés ejecutar la herramienta simplemente escribiendo devsec en cualquier terminal.
