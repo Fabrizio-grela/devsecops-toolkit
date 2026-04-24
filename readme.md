@@ -37,7 +37,9 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 1. Cloná el repositorio:
 
    git clone https://github.com/Fabrizio-grela/devsecops-toolkit.git
+
    cd devsecops-toolkit
+   
 2. Instalá las dependencias necesarias:
 
    pip install -r requirements.txt
