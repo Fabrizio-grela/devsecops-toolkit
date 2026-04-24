@@ -24,21 +24,31 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 
 ## 🛠️ Instalación
 
-La herramienta está diseñada para ser instalada como un comando global del sistema, permitiéndote ejecutar `devsec` en cualquier carpeta.
+🪟 Windows (Recomendado)
+1. Andá a la sección de Releases de este repositorio.
 
-### 🪟 Windows
-1. Descarga el repositorio y asegúrate de tener el archivo `devsec.exe` en la carpeta `dist/`.
-2. Haz clic derecho sobre el archivo `instalar.ps1` y selecciona **"Ejecutar con PowerShell"**.
-3. Reinicia tu terminal (CMD o PowerShell).
-4. ¡Listo! Escribe `devsec` para empezar.
+2. Descargá el archivo devsec.exe.
 
-### 🐧 Linux & 🍎 macOS
-1. Abre una terminal en la carpeta del proyecto.
-2. Otorga permisos de ejecución al script:
-   ```bash
-   chmod +x instalar.sh
-3. Ejecuta el instalador: `instalar.sh`
-4. Ahora puedes ejecutar la herramienta simplemente escribiendo `devsec`.
+3. Importante: Al ser un ejecutable de Python sin firma digital, Windows Defender podría mostrar una advertencia. Hacé clic en "Más información" y luego en "Ejecutar de todas formas".
+
+4. Para usarlo como comando global, mové el .exe a una carpeta y agregá esa ruta a tus Variables de Entorno (PATH).
+
+🐧 Linux & 🍎 macOS (Código Fuente)
+1. Cloná el repositorio:
+
+git clone https://github.com/TU_USUARIO/TU_REPO.git
+cd TU_REPO
+
+2. Instalá las dependencias necesarias:
+
+pip install -r requirements.txt
+
+3. Dale permisos al instalador y ejecutalo:
+
+chmod +x instalar.sh
+./instalar.sh
+
+4. g¡Listo! Ahora podés ejecutar la herramienta simplemente escribiendo devsec en cualquier terminal.
 
 💻 Modo de Uso
 DevSecOps Toolkit cuenta con dos formas de ejecución:
