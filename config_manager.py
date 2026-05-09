@@ -7,8 +7,8 @@ CONFIG_FILE = "config.json"
 
 def initial_setup():
     """Asistente interactivo que se ejecuta solo la primera vez"""
-    # Evita bloquear en CI/CD o entornos Docker no interactivos
-    if not sys.stdout.isatty() or os.environ.get("CI"):
+    # Evita bloquear en entornos Docker no interactivos
+    if not sys.stdout.isatty():
         return {
             "api_keys": {},
             "settings": {"ai_provider": "gemini", "ai_model": "gemini-2.5-flash"},
@@ -101,22 +101,8 @@ def load_config():
         return initial_setup()
 
 def get_api_key(service):
-    env_mapping = {
-        "gemini": "GEMINI_API_KEY",
-        "openai": "OPENAI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-        "virustotal": "VT_API_KEY"
-    }
-    
-    # Prioriza variables de entorno (ideal para CI/CD en GitHub Actions)
-    env_var_name = env_mapping.get(service, "")
-    if env_var_name and os.getenv(env_var_name):
-        return os.getenv(env_var_name)
-        
     config = load_config()
-    key = config.get("api_keys", {}).get(service, "")
-    
-    return key
+    return config.get("api_keys", {}).get(service, "")
 
 def get_ai_settings():
     config = load_config()

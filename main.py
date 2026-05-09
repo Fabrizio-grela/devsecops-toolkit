@@ -137,8 +137,7 @@ def main():
     if (args.todo or args.intel) and not os.getenv("VT_API_KEY"):
         logger.warning("Se requiere API Key de VirusTotal")
         
-        # Evitar bloquear la ejecución si corre en GitHub Actions (CI/CD)
-        if sys.stdout.isatty() and not os.environ.get("CI"):
+        if sys.stdout.isatty():
             clave = input("👉 Pegá tu API Key (Enter para saltar): ").strip()
             if clave:
                 os.environ["VT_API_KEY"] = clave
@@ -197,7 +196,7 @@ def main():
         # --- Opciones de guardado ---
         directorio_reportes = "reportes"
         
-        if sys.stdout.isatty() and not os.environ.get("CI"):
+        if sys.stdout.isatty():
             print("\n" + "-"*60)
             resp_dir = input("📁 ¿Dónde querés guardar el reporte HTML? (Enter para 'reportes/'): ").strip()
             if resp_dir:
@@ -215,7 +214,7 @@ def main():
         
         # --- Limpieza de credenciales ---
         # Solo pregunta si hay un humano interactuando en la consola
-        if sys.stdout.isatty() and not os.environ.get("CI"):
+        if sys.stdout.isatty():
             respuesta = input("❓ ¿Querés eliminar las API Keys usadas en esta sesión por seguridad? (s/N): ").strip().lower()
             if respuesta in ['s', 'si', 'y', 'yes']:
                 if config_manager.delete_config():
