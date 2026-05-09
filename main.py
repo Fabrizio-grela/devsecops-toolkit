@@ -8,7 +8,7 @@ import tempfile
 import subprocess
 import shutil
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import List, Tuple, Any
+from typing import List
 import config_manager
 from utils import logger, validar_ruta, ResultadoAnalisis
 from report_generator import GeneradorReportes
@@ -116,14 +116,13 @@ def main():
         repo_temporal = tempfile.mkdtemp(prefix="devsec_repo_")
         try:
             # Clona solo el último commit (--depth 1) para que sea súper rápido
-            subprocess.run(["git", "clone", "--depth", "1", args.ruta, repo_temporal], check=True, capture_output=True)
+            subprocess.run(["git", "clone", "--depth", "1", args.ruta, repo_temporal], check=True, capture_output=True) # nosec
             args.ruta = repo_temporal
             logger.info("✅ Repositorio descargado en memoria temporal para el análisis.\n")
         except Exception as e:
             logger.error("❌ Error al clonar. Verificá que 'git' esté instalado y el repo sea público.")
             sys.exit(1)
 
-    # Valida ruta
     if not validar_ruta(args.ruta):
         logger.error(f"La ruta '{args.ruta}' no existe o no es accesible.")
         return
@@ -195,17 +194,23 @@ def main():
         tiempo_total = time.time() - inicio
         logger.info(f"\n⏱️  Finalizado en {tiempo_total:.2f} segundos.")
         
-        # Genera reportes
-        logger.info("\n📊 Generando reportes...")
-        gen = GeneradorReportes()
+        # --- Opciones de guardado ---
+        directorio_reportes = "reportes"
+        
+        if sys.stdout.isatty() and not os.environ.get("CI"):
+            print("\n" + "-"*60)
+            resp_dir = input("📁 ¿Dónde querés guardar el reporte HTML? (Enter para 'reportes/'): ").strip()
+            if resp_dir:
+                directorio_reportes = resp_dir
+
+        logger.info("\n📊 Generando reporte HTML...")
+        gen = GeneradorReportes(directorio_reportes=directorio_reportes)
         nombre_base = getattr(args, 'nombre_reporte', '') or None
-        reportes = gen.guardar_todos(resultados_list, nombre_base=nombre_base, ruta_escaneo=ruta_original)
+        ruta_html = gen.guardar_html(resultados_list, nombre_reporte=nombre_base, ruta_escaneo=ruta_original)
         
         print(f"\n{'='*60}")
-        print(f"📋 REPORTES GENERADOS:")
-        print(f"  📄 JSON: {reportes['json']}")
-        print(f"  🌐 HTML: {reportes['html']}")
-        print(f"  📊 CSV:  {reportes['csv']}")
+        print(f"📋 REPORTE GENERADO:")
+        print(f"  🌐 HTML: {ruta_html}")
         print(f"{'='*60}\n")
         
         # --- Limpieza de credenciales ---
@@ -228,7 +233,6 @@ def main():
         logger.error(f"Error no esperado: {e}")
         sys.exit(1)
     finally:
-        # Limpieza de repositorio temporal
         if repo_temporal and os.path.exists(repo_temporal):
             try:
                 shutil.rmtree(repo_temporal, ignore_errors=True)

@@ -1,12 +1,8 @@
-import java.sql.*;
+import java.sql.Statement;
 
 public class Vulnerable {
-    public void execute(String user) throws Exception {
-        // 1. Esto debería disparar la alerta de SQL Injection
-        Statement stmt = conn.createStatement();
-        stmt.executeQuery("SELECT * FROM users WHERE id = " + user); 
-
-        // 2. Esto debería disparar la alerta de RCE (Comandos de sistema)
-        Runtime.getRuntime().exec("ping " + user);
+    public void consultaInsegura(Statement statement, String query) throws Exception {
+        // Posible SQL Injection detectada por SAST
+        statement.executeQuery(query);
     }
 }

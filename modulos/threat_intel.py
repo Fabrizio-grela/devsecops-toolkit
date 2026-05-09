@@ -8,8 +8,9 @@ import re
 import requests
 import time
 import asyncio
-from typing import Set, Dict, Optional, List
-from utils import logger, validar_ruta, obtener_archivos_proyecto, cache_global, EXTENSIONES_VALIDAS, ResultadoAnalisis
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Set, Dict, List, Any
+from utils import logger, validar_ruta, obtener_archivos_proyecto, cache_global, EXTENSIONES_VALIDAS, ResultadoAnalisis, leer_archivo_completo
 
 try:
     import aiohttp
@@ -26,7 +27,7 @@ def es_ip_privada(ip: str) -> bool:
     """Verifica si una IP es privada/local."""
     return any(ip.startswith(prefijo) for prefijo in IPS_PRIVADAS)
 
-async def consultar_virustotal_async(ip: str, api_key: str, session: 'aiohttp.ClientSession', sem: asyncio.Semaphore) -> Dict[str, any]:
+async def consultar_virustotal_async(ip: str, api_key: str, session: Any, sem: asyncio.Semaphore) -> Dict[str, Any]:
     """Consulta la reputación de una IP en VirusTotal de forma asíncrona."""
     cache_key = f"vt_{ip}"
     resultado_cache = cache_global.get(cache_key)
@@ -66,10 +67,9 @@ async def consultar_virustotal_async(ip: str, api_key: str, session: 'aiohttp.Cl
         except Exception as e:
             return {'ip': ip, 'estado': 'error', 'mensaje': f'Error: {str(e)}', 'maliciosos': 0}
 
-def consultar_virustotal(ip: str, api_key: str) -> Dict[str, any]:
+def consultar_virustotal(ip: str, api_key: str) -> Dict[str, Any]:
     """Consulta la reputación de una IP en VirusTotal."""
     
-    # Intenta obtener del caché primero (con TTL largo)
     cache_key = f"vt_{ip}"
     resultado_cache = cache_global.get(cache_key)
     if resultado_cache is not None:
@@ -111,7 +111,6 @@ def consultar_virustotal(ip: str, api_key: str) -> Dict[str, any]:
         else:
             resultado['mensaje'] = f"❓ Estado desconocido (Código {respuesta.status_code})"
         
-        # Cachea el resultado
         cache_global.set(cache_key, resultado)
         return resultado
         
@@ -122,24 +121,30 @@ def consultar_virustotal(ip: str, api_key: str) -> Dict[str, any]:
         logger.error(f"Error consultando VirusTotal para {ip}: {e}")
         return {'ip': ip, 'estado': 'error', 'mensaje': f'Error: {str(e)}', 'maliciosos': 0}
 
+def extraer_ips_archivo(archivo: str) -> Set[str]:
+    """Extrae IPs de un solo archivo."""
+    ips = set()
+    contenido = leer_archivo_completo(archivo)
+    if contenido:
+        encontradas = re.findall(REGEX_IP, contenido)
+        for ip in encontradas:
+            if not es_ip_privada(ip):
+                ips.add(ip)
+                logger.debug(f"🔍 IP encontrada: {ip} en {archivo}")
+    return ips
+
 def extraer_ips(ruta_proyecto: str) -> Set[str]:
     """Extrae todas las IPs públicas encontradas en archivos."""
     ips_encontradas = set()
     
     archivos = obtener_archivos_proyecto(ruta_proyecto, EXTENSIONES_VALIDAS)
     
-    for archivo in archivos:
-        try:
-            with open(archivo, 'r', encoding='utf-8', errors='ignore') as f:
-                contenido = f.read()
-                ips = re.findall(REGEX_IP, contenido)
-                for ip in ips:
-                    # Filtra IPs locales/privadas
-                    if not es_ip_privada(ip):
-                        ips_encontradas.add(ip)
-                        logger.debug(f"🔍 IP encontrada: {ip} en {archivo}")
-        except Exception as e:
-            logger.debug(f"Error leyendo {archivo}: {e}")
+    with ThreadPoolExecutor() as executor:
+        futuros = [executor.submit(extraer_ips_archivo, archivo) for archivo in archivos]
+        for futuro in as_completed(futuros):
+            ips = futuro.result()
+            if ips:
+                ips_encontradas.update(ips)
     
     return ips_encontradas
 
@@ -156,7 +161,6 @@ def analizar(ruta_proyecto: str) -> ResultadoAnalisis:
     if not validar_ruta(ruta_proyecto):
         return ResultadoAnalisis('threat_intel', False, "Error: ruta no válida")
     
-    # Obtiene API Key
     api_key = os.getenv("VT_API_KEY")
     if not api_key:
         logger.warning("Falta configurar variable VT_API_KEY")
@@ -164,7 +168,6 @@ def analizar(ruta_proyecto: str) -> ResultadoAnalisis:
     
     logger.info("🌐 Iniciando análisis de Threat Intel...")
     
-    # Fase 1: Recolección de IPs
     logger.info("🔍 Extrayendo IPs del proyecto...")
     ips_encontradas = extraer_ips(ruta_proyecto)
     
@@ -201,7 +204,6 @@ def analizar(ruta_proyecto: str) -> ResultadoAnalisis:
             })
             ips_maliciosas += 1
             
-    # Fase 3: Reporte
     resultado_msg = f"\n🌐 Módulo: THREAT INTEL - Reputación\n{'='*50}\n✅ Se analizaron {len(ips_encontradas)} IPs únicas\n"
     
     if hallazgos:

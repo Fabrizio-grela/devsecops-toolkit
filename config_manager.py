@@ -39,7 +39,7 @@ def initial_setup():
         ai_key = input("\n[🔑] Pegá tu API Key de OpenAI: ").strip()
     elif opcion_ia == "3":
         ai_provider = "anthropic"
-        ai_model = "claude-3-5-sonnet-20240620" # Modelo rápido y potente de Claude
+        ai_model = "claude-3-5-sonnet-20240620"
         ai_key = input("\n[🔑] Pegá tu API Key de Anthropic (Claude): ").strip()
     elif opcion_ia == "4":
         ai_provider = "ollama"
@@ -56,7 +56,6 @@ def initial_setup():
     print("\n🦠 Para el escaneo avanzado de Threat Intel usamos VirusTotal.")
     vt_key = input("[🔑] Pegá tu API Key de VirusTotal (o apretá Enter para saltar): ").strip()
 
-    # 3. Armar el diccionario y guardar
     config = {
         "api_keys": {
             "virustotal": vt_key,
@@ -132,7 +131,3 @@ def obfuscate_config():
         return True
     except Exception:
         return False
-
-# Bloque de prueba
-if __name__ == "__main__":
-    print("[*] Iniciando prueba del módulo de configuración...")

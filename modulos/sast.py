@@ -7,49 +7,53 @@ Con remediación automática por IA.
 
 import re
 import os
-from typing import List, Dict, Optional, Set
-from utils import logger, validar_ruta, obtener_archivos_por_tipo, EXTENSIONES_CODIGOS, ResultadoAnalisis
+from typing import List, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from utils import logger, validar_ruta, obtener_archivos_proyecto, EXTENSIONES_CODIGOS, ResultadoAnalisis, leer_lineas_archivo
 
 try:
     import ai_handler
 except ImportError:
     ai_handler = None
 
+# Expresión regular precompilada para ignorar falsos positivos
+IGNORE_EVAL_PATTERN = re.compile(r'["\'].*eval\(.*["\']')
+
 # Reglas multi-lenguaje (Python, JS, Java, PHP, C/C++)
 RULES = {
     '.py': [
-        (r'eval\(', 'Uso de eval() - Riesgo de RCE', 'critico', 'python'),
-        (r'exec\(', 'Uso de exec() - Riesgo de RCE', 'critico', 'python'),
-        (r'os\.system\(', 'Inyección de comandos', 'alto', 'python'),
-        (r'subprocess\.(call|run|Popen)\s*\(\s*\[?["\'](?!.*\[)', 'Ejecución de comandos insegura', 'alto', 'python'),
-        (r'pickle\.load\(', 'Deserialización insegura', 'alto', 'python'),
+        (re.compile(r'eval\('), 'Uso de eval() - Riesgo de RCE', 'critico', 'python'),
+        (re.compile(r'exec\('), 'Uso de exec() - Riesgo de RCE', 'critico', 'python'),
+        (re.compile(r'os\.system\('), 'Inyección de comandos', 'alto', 'python'),
+        (re.compile(r'subprocess\.(call|run|Popen)\s*\(\s*\[?["\'](?!.*\[)'), 'Ejecución de comandos insegura', 'alto', 'python'),
+        (re.compile(r'pickle\.load\('), 'Deserialización insegura', 'alto', 'python'),
     ],
     '.js': [
-        (r'eval\(', 'Inyección de código JavaScript', 'critico', 'javascript'),
-        (r'innerHTML\s*=', 'Riesgo crítico de XSS', 'critico', 'javascript'),
-        (r'document\.write\(', 'Riesgo de XSS', 'alto', 'javascript'),
-        (r'dangerouslySetInnerHTML', 'Uso de dangerouslySetInnerHTML (React)', 'alto', 'javascript'),
+        (re.compile(r'eval\('), 'Inyección de código JavaScript', 'critico', 'javascript'),
+        (re.compile(r'innerHTML\s*='), 'Riesgo crítico de XSS', 'critico', 'javascript'),
+        (re.compile(r'document\.write\('), 'Riesgo de XSS', 'alto', 'javascript'),
+        (re.compile(r'dangerouslySetInnerHTML'), 'Uso de dangerouslySetInnerHTML (React)', 'alto', 'javascript'),
     ],
     '.java': [
-        (r'Runtime\.getRuntime\(\)\.exec\(', 'Ejecución de comandos - RCE', 'critico', 'java'),
-        (r'Statement\.executeQuery\(', 'Posible SQL Injection', 'alto', 'java'),
-        (r'String\.format.*sql', 'Posible SQL Injection con format', 'alto', 'java'),
+        (re.compile(r'Runtime\.getRuntime\(\)\.exec\('), 'Ejecución de comandos - RCE', 'critico', 'java'),
+        (re.compile(r'Statement\.executeQuery\('), 'Posible SQL Injection', 'alto', 'java'),
+        (re.compile(r'String\.format.*sql'), 'Posible SQL Injection con format', 'alto', 'java'),
     ],
     '.php': [
-        (r'eval\(', 'Riesgo crítico de RCE', 'critico', 'php'),
-        (r'include\(\$_GET', 'LFI/RFI Detectado', 'critico', 'php'),
-        (r'require\(\$_', 'Remote Include detectado', 'critico', 'php'),
-        (r'system\(', 'Ejecución de comandos insegura', 'alto', 'php'),
-        (r'passthru\(', 'Ejecución de comandos', 'alto', 'php'),
+        (re.compile(r'eval\('), 'Riesgo crítico de RCE', 'critico', 'php'),
+        (re.compile(r'include\(\$_GET'), 'LFI/RFI Detectado', 'critico', 'php'),
+        (re.compile(r'require\(\$_'), 'Remote Include detectado', 'critico', 'php'),
+        (re.compile(r'system\('), 'Ejecución de comandos insegura', 'alto', 'php'),
+        (re.compile(r'passthru\('), 'Ejecución de comandos', 'alto', 'php'),
     ],
     '.c': [
-        (r'gets\(', 'Buffer Overflow - gets() prohibido', 'critico', 'c'),
-        (r'strcpy\(', 'Buffer Overflow con strcpy', 'alto', 'c'),
-        (r'sprintf\(', 'Posible Buffer Overflow', 'medio', 'c'),
+        (re.compile(r'gets\('), 'Buffer Overflow - gets() prohibido', 'critico', 'c'),
+        (re.compile(r'strcpy\('), 'Buffer Overflow con strcpy', 'alto', 'c'),
+        (re.compile(r'sprintf\('), 'Posible Buffer Overflow', 'medio', 'c'),
     ],
     '.cpp': [
-        (r'strcpy\(', 'Buffer Overflow con strcpy', 'alto', 'cpp'),
-        (r'memcpy\(', 'Posible Buffer Overflow con memcpy', 'medio', 'cpp'),
+        (re.compile(r'strcpy\('), 'Buffer Overflow con strcpy', 'alto', 'cpp'),
+        (re.compile(r'memcpy\('), 'Posible Buffer Overflow con memcpy', 'medio', 'cpp'),
     ]
 }
 
@@ -61,35 +65,39 @@ def scan_sast(ruta_archivo: str) -> List[Dict]:
     if ext not in RULES:
         return vulnerabilidades
     
-    try:
-        with open(ruta_archivo, 'r', encoding='utf-8', errors='ignore') as f:
-            for num, linea in enumerate(f, 1):
-                linea_strip = linea.strip()
-                
-                # Ignorar comentarios para evitar falsos positivos
-                if linea_strip.startswith('#') or linea_strip.startswith('//'):
-                    continue
-                
-                # Ignorar logs, tests y strings comunes que causan falsos positivos
-                if linea_strip.startswith(('print(', 'logger.', 'assert ', '"""', "'''", 'r1.', 'resultado')):
-                    continue
-                if re.search(r'["\'].*eval\(.*["\']', linea_strip):
-                    continue
+    lineas = leer_lineas_archivo(ruta_archivo)
+    if not lineas:
+        return vulnerabilidades
 
-                for patron, mensaje, severidad, lenguaje in RULES[ext]:
-                    if re.search(patron, linea):
-                        vulnerabilidades.append({
-                            'tipo': ext.upper().replace('.', ''),
-                            'descripcion': mensaje,
-                            'linea': num,
-                            'codigo': linea.strip()[:80],
-                            'severidad': severidad,
-                            'archivo': ruta_archivo,
-                            'lenguaje': lenguaje
-                        })
-                        logger.debug(f"🔴 [{ext}] {mensaje} en {ruta_archivo}:{num}")
-    except Exception as e:
-        logger.warning(f"Error leyendo {ruta_archivo}: {e}")
+    for num, linea in enumerate(lineas, 1):
+        linea_strip = linea.strip()
+        
+        # Ignorar comentarios para evitar falsos positivos
+        if linea_strip.startswith('#') or linea_strip.startswith('//'):
+            continue
+            
+        # Ignorar líneas marcadas explícitamente como seguras por el desarrollador
+        if linea_strip.endswith('# nosec') or linea_strip.endswith('# devsec:ignore'):
+            continue
+        
+        # Ignorar logs, tests y strings comunes que causan falsos positivos
+        if linea_strip.startswith(('print(', 'logger.', 'assert ', '"""', "'''", 'r1.', 'resultado')):
+            continue
+        if IGNORE_EVAL_PATTERN.search(linea_strip):
+            continue
+
+        for patron_regex, mensaje, severidad, lenguaje in RULES[ext]:
+            if patron_regex.search(linea):
+                vulnerabilidades.append({
+                    'tipo': ext.upper().replace('.', ''),
+                    'descripcion': mensaje,
+                    'linea': num,
+                    'codigo': linea.strip()[:80],
+                    'severidad': severidad,
+                    'archivo': ruta_archivo,
+                    'lenguaje': lenguaje
+                })
+                logger.debug(f"🔴 [{ext}] {mensaje} en {ruta_archivo}:{num}")
     
     return vulnerabilidades
 
@@ -117,21 +125,16 @@ def analizar(ruta: str) -> ResultadoAnalisis:
     resultados_totales = []
     archivos_analizados = 0
     
-    # Obtiene todos los archivos de código
-    archivos = obtener_archivos_por_tipo(ruta, tipo="python")
-    archivos.extend(obtener_archivos_por_tipo(ruta, tipo="javascript"))
-    archivos.extend(obtener_archivos_por_tipo(ruta, tipo="java"))
-    archivos.extend(obtener_archivos_por_tipo(ruta, tipo="php"))
-    archivos.extend(obtener_archivos_por_tipo(ruta, tipo="c"))
+    # Obtiene todos los archivos de código en una sola pasada de disco
+    archivos = obtener_archivos_proyecto(ruta, EXTENSIONES_CODIGOS)
     
-    # Elimina duplicados
-    archivos = list(set(archivos))
-    
-    for archivo in archivos:
-        res = scan_sast(archivo)
-        if res:
-            resultados_totales.extend(res)
-        archivos_analizados += 1
+    with ThreadPoolExecutor() as executor:
+        futuros = [executor.submit(scan_sast, archivo) for archivo in archivos]
+        for futuro in as_completed(futuros):
+            res = futuro.result()
+            if res:
+                resultados_totales.extend(res)
+            archivos_analizados += 1
     
     if not resultados_totales:
         logger.info(f"✅ No se detectaron vulnerabilidades en {archivos_analizados} archivos")
@@ -141,7 +144,6 @@ def analizar(ruta: str) -> ResultadoAnalisis:
     resultado_msg += f"{'='*50}\n"
     resultado_msg += f"⚠️ Se detectaron {len(resultados_totales)} vulnerabilidades potenciales:\n"
     
-    # Agrupa por severidad
     por_severidad = {}
     for v in resultados_totales:
         sev = v['severidad']
@@ -156,7 +158,6 @@ def analizar(ruta: str) -> ResultadoAnalisis:
     
     analisis = ResultadoAnalisis('sast', True, "", resultados_totales)
     
-    # Muestra todas las vulnerabilidades
     for idx, v in enumerate(resultados_totales, 1):
         resultado_msg += f"  {idx}. 🔴 [{v['severidad'].upper()}] {v['descripcion']} en {v['archivo']} (Línea {v['linea']})\n"
         

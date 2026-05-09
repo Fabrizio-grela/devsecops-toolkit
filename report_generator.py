@@ -3,12 +3,11 @@ Generador de reportes JSON y HTML para DevSecOps Toolkit
 Convierte resultados de análisis en reportes documentados
 """
 
-import csv
-import json
 import os
+import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 from utils import logger, ResultadoAnalisis
 
 class GeneradorReportes:
@@ -31,83 +30,6 @@ class GeneradorReportes:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return f"{prefijo}_{timestamp}"
     
-    def guardar_json(self, 
-                     resultados: List[ResultadoAnalisis], 
-                     nombre_reporte: Optional[str] = None,
-                     ruta_escaneo: str = ".") -> str:
-        """Guarda resultados en JSON con metadata."""
-        
-        if not nombre_reporte:
-            nombre_reporte = self.generar_nombre_reporte()
-        
-        reporte = {
-            "metadata": {
-                "titulo": "DevSecOps Toolkit - Reporte de Seguridad",
-                "version": "2.0",
-                "fecha_generacion": datetime.now().isoformat(),
-                "ruta_escaneo": ruta_escaneo,
-                "total_modulos": len(resultados),
-            },
-            "resumen": {
-                "total_hallazgos": sum(r.a_dict()['total_hallazgos'] for r in resultados),
-                "modulos_exitosos": sum(1 for r in resultados if r.exito),
-                "modulos_fallidos": sum(1 for r in resultados if not r.exito),
-                "criticos": 0,
-                "altos": 0,
-                "medios": 0,
-                "bajos": 0,
-            },
-            "resultados": [r.a_dict() for r in resultados]
-        }
-        
-        # Contabiliza severidades
-        for resultado in reporte['resultados']:
-            for hallazgo in resultado['hallazgos']:
-                severidad = hallazgo.get('severidad', 'info')
-                if severidad == 'critico':
-                    reporte['resumen']['criticos'] += 1
-                elif severidad == 'alto':
-                    reporte['resumen']['altos'] += 1
-                elif severidad == 'medio':
-                    reporte['resumen']['medios'] += 1
-                elif severidad == 'bajo':
-                    reporte['resumen']['bajos'] += 1
-        
-        # Guarda archivo
-        ruta_archivo = os.path.join(self.directorio, f"{nombre_reporte}.json")
-        try:
-            with open(ruta_archivo, 'w', encoding='utf-8') as f:
-                json.dump(reporte, f, indent=2, ensure_ascii=False)
-            logger.info(f"✅ Reporte JSON guardado: {ruta_archivo}")
-            return ruta_archivo
-        except Exception as e:
-            logger.error(f"Error guardando JSON: {e}")
-            return ""
-    
-    def guardar_csv(self, resultados: List[ResultadoAnalisis], nombre_reporte: Optional[str] = None) -> str:
-        """Guarda resultados en formato CSV (Excel)."""
-        if not nombre_reporte:
-            nombre_reporte = self.generar_nombre_reporte()
-            
-        ruta_archivo = os.path.join(self.directorio, f"{nombre_reporte}.csv")
-        try:
-            with open(ruta_archivo, 'w', newline='', encoding='utf-8-sig') as f:
-                writer = csv.writer(f, delimiter=';')
-                writer.writerow(['Módulo', 'Severidad', 'Tipo', 'Archivo', 'Línea', 'Descripción', 'Sugerencia IA'])
-                
-                for r in resultados:
-                    for h in r.hallazgos:
-                        solucion_ia = h.get('remediacion', {}).get('solucion', '') if 'remediacion' in h else ''
-                        writer.writerow([
-                            r.modulo, h.get('severidad', '').upper(), h.get('tipo', ''), 
-                            h.get('archivo', ''), h.get('linea', ''), h.get('descripcion', ''), solucion_ia
-                        ])
-            logger.info(f"✅ Reporte CSV guardado: {ruta_archivo}")
-            return ruta_archivo
-        except Exception as e:
-            logger.error(f"Error guardando CSV: {e}")
-            return ""
-
     def guardar_html(self, 
                      resultados: List[ResultadoAnalisis],
                      nombre_reporte: Optional[str] = None,
@@ -117,12 +39,10 @@ class GeneradorReportes:
         if not nombre_reporte:
             nombre_reporte = self.generar_nombre_reporte()
         
-        # Calcula estadísticas
         total_hallazgos = sum(r.a_dict()['total_hallazgos'] for r in resultados)
         modulos_exitosos = sum(1 for r in resultados if r.exito)
         modulos_fallidos = sum(1 for r in resultados if not r.exito)
         
-        # Construye tabla de hallazgos con mejor formato
         filas_hallazgos = ""
         color_map = {
             'critico': 'danger',
@@ -137,17 +57,31 @@ class GeneradorReportes:
                 color = color_map.get(hallazgo.get('severidad', 'info'), 'secondary')
                 severidad = hallazgo.get('severidad', 'info').upper()
                 
+                codigo_vuln = hallazgo.get('codigo', '')
+                bloque_codigo = ""
+                if codigo_vuln:
+                    # Escapa comillas y símbolos HTML para que no rompan el botón
+                    codigo_escapado = str(codigo_vuln).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+                    bloque_codigo = f"""
+                    <div class="mt-2 p-2 bg-light border rounded d-flex justify-content-between align-items-center">
+                        <code class="text-dark text-break">{codigo_escapado}</code>
+                        <button class="btn btn-sm btn-outline-primary ms-2 text-nowrap" onclick="copiarPortapapeles(this)" data-codigo="{codigo_escapado}">📋 Copiar</button>
+                    </div>
+                    """
+                
                 filas_hallazgos += f"""
                 <tr>
                     <td><strong class="text-muted">{resultado.modulo}</strong></td>
                     <td><code>{hallazgo.get('tipo', 'N/A')}</code></td>
                     <td><span class="badge bg-{color}">{severidad}</span></td>
-                    <td class="text-start">{hallazgo.get('descripcion', '')}</td>
+                    <td class="text-start">
+                        {hallazgo.get('descripcion', '')}
+                        {bloque_codigo}
+                    </td>
                     <td class="text-center"><small>{hallazgo.get('linea', '-')}</small></td>
                 </tr>
                 """
                 
-        # Construye sección de resumen de mitigaciones IA
         seccion_ia = ""
         mitigaciones_ia = []
         
@@ -169,36 +103,39 @@ class GeneradorReportes:
         if mitigaciones_ia:
             filas_ia = ""
             for m in mitigaciones_ia:
+                bloque_corregido = ""
+                if m['codigo_corregido']:
+                    codigo_corr_escapado = str(m['codigo_corregido']).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+                    bloque_corregido = f"""
+                    <div class="position-relative mt-2">
+                        <div class="text-end mb-1">
+                            <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="copiarPortapapeles(this)" data-codigo="{codigo_corr_escapado}">📋 Copiar Código Seguro</button>
+                        </div>
+                        <div class="bg-dark p-2 rounded text-light" style="font-family: monospace; font-size: 0.85em; white-space: pre-wrap;">{codigo_corr_escapado}</div>
+                    </div>
+                    """
+                    
                 filas_ia += f"""
                 <div class="card mb-3 border-start border-4 border-success">
                     <div class="card-body">
                         <h6 class="text-success mb-2">[{m['modulo']}] {m['tipo']} en <code>{m['archivo']}</code> (Línea {m['linea']})</h6>
                         <p class="mb-1"><strong>⚠️ Riesgo:</strong> {m['riesgo']}</p>
                         <p class="mb-2"><strong>✅ Solución:</strong> {m['solucion']}</p>
-                        {f'<div class="bg-dark p-2 rounded mt-2 text-light" style="font-family: monospace; font-size: 0.85em; white-space: pre-wrap;">{m["codigo_corregido"].replace("<", "&lt;").replace(">", "&gt;")}</div>' if m['codigo_corregido'] else ''}
+                        {bloque_corregido}
                         <div class="text-end mt-2"><small class="text-muted">🤖 Generado por {m['proveedor']}</small></div>
                     </div>
                 </div>
                 """
             seccion_ia = f'<h3 class="mt-5">🤖 Resumen de Mitigaciones Sugeridas (IA)</h3>{filas_ia}'
         
-        # Construye secciones de módulos con mejor formato
         secciones_modulos = ""
-        color_map = {
-            'critico': 'danger',
-            'alto': 'warning',
-            'medio': 'info',
-            'bajo': 'secondary'
-        }
         
         for resultado in resultados:
             estado_badge = "success" if resultado.exito else "danger"
             estado_icono = "✅" if resultado.exito else "❌"
             
-            # Extrae el mensaje formateado
             mensaje_limpio = resultado.mensaje.replace('\n', '<br>')
             
-            # Cuenta por severidad
             criticos = resultado.mensaje.count('[CRITICO]')
             altos = resultado.mensaje.count('[ALTO]')
             medios = resultado.mensaje.count('[MEDIO]')
@@ -505,68 +442,32 @@ class GeneradorReportes:
             </div>
             
             <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+            <script>
+                function copiarPortapapeles(btn) {{
+                    const texto = btn.getAttribute('data-codigo');
+                    navigator.clipboard.writeText(texto).then(() => {{
+                        const originalHTML = btn.innerHTML;
+                        btn.innerHTML = "✅ Copiado";
+                        setTimeout(() => {{ btn.innerHTML = originalHTML; }}, 2000);
+                    }}).catch(err => console.error('Error al copiar: ', err));
+                }}
+            </script>
         </body>
         </html>
         """
         
-        # Guarda archivo
+        # Minificación nativa: Elimina espacios en blanco y saltos de línea entre etiquetas HTML
+        html_minificado = re.sub(r'>\s+<', '><', html.strip())
+        
         ruta_archivo = os.path.join(self.directorio, f"{nombre_reporte}.html")
         try:
             with open(ruta_archivo, 'w', encoding='utf-8') as f:
-                f.write(html)
+                f.write(html_minificado)
             logger.info(f"✅ Reporte HTML guardado: {ruta_archivo}")
             return ruta_archivo
         except Exception as e:
             logger.error(f"Error guardando HTML: {e}")
             return ""
-    
-    def _generar_tabla_hallazgos(self, resultado: ResultadoAnalisis) -> str:
-        """Genera tabla HTML de hallazgos para un módulo."""
-        if not resultado.hallazgos:
-            return "<p class='text-muted'>Sin hallazgos</p>"
-        
-        filas = ""
-        for hallazgo in resultado.hallazgos:
-            severidad = hallazgo.get('severidad', 'info')
-            color = {
-                'critico': 'danger',
-                'alto': 'warning',
-                'medio': 'warning',
-                'bajo': 'info'
-            }.get(severidad, 'secondary')
-            
-            filas += f"""
-            <tr>
-                <td><span class="badge bg-{color}">{severidad.upper()}</span></td>
-                <td>{hallazgo.get('tipo', 'N/A')}</td>
-                <td>{hallazgo.get('descripcion', '')}</td>
-            </tr>
-            """
-        
-        return f"""
-        <div class="table-responsive">
-            <table class="table table-sm table-borderless">
-                <tbody>
-                    {filas}
-                </tbody>
-            </table>
-        </div>
-        """
-    
-    def guardar_todos(self, 
-                      resultados: List[ResultadoAnalisis],
-                      nombre_base: Optional[str] = None,
-                      ruta_escaneo: str = ".") -> Dict[str, str]:
-        """Guarda reportes en JSON, HTML y CSV, retorna rutas."""
-        
-        if not nombre_base:
-            nombre_base = self.generar_nombre_reporte()
-        
-        return {
-            'json': self.guardar_json(resultados, nombre_base, ruta_escaneo),
-            'html': self.guardar_html(resultados, nombre_base, ruta_escaneo),
-            'csv': self.guardar_csv(resultados, nombre_base)
-        }
 
 
 if __name__ == "__main__":
@@ -581,5 +482,5 @@ if __name__ == "__main__":
     r2 = ResultadoAnalisis("SCA", True, "Análisis completado")
     r2.agregar_hallazgo("CVE", "requests-2.28.0 vulnerable", "alto", 0)
     
-    reportes = gen.guardar_todos([r1, r2], ruta_escaneo=".")
-    print(f"✅ Reportes generados: {reportes}")
+    ruta_html = gen.guardar_html([r1, r2], ruta_escaneo=".")
+    print(f"✅ Reporte generado: {ruta_html}")

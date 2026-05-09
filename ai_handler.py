@@ -4,19 +4,87 @@ Genera sugerencias de remediación automática para vulnerabilidades.
 Soporta: Gemini, OpenAI, Anthropic, Ollama
 """
 
-import os
+import json
 import hashlib
+import os
+import tempfile
 import time
-from typing import Optional, Dict, Any
-from utils import logger, cache_global
+from typing import Optional, Dict
+from utils import logger
 
 import config_manager
 
-# Librería de Google
 try:
     from google import genai
 except ImportError:
     genai = None
+
+AI_CACHE_FILE = ".ai_cache.json"
+
+def load_ai_cache() -> dict:
+    """Carga el caché de IA desde el disco."""
+    if os.path.exists(AI_CACHE_FILE):
+        try:
+            with open(AI_CACHE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_ai_cache(cache_data: dict):
+    """Guarda el caché de IA en el disco."""
+    try:
+        with open(AI_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+ai_persistent_cache = load_ai_cache()
+
+def validar_codigo_ia(codigo: str, lenguaje: str) -> bool:
+    """Pasa el código sugerido por la IA por el motor SAST/IaC para evitar alucinaciones vulnerables."""
+    if not codigo:
+        return True
+        
+    try:
+        from modulos import sast, iac_scanner
+    except ImportError:
+        return True
+        
+    lenguaje = lenguaje.lower()
+    ext_map = {
+        'python': '.py', 'javascript': '.js', 'java': '.java', 
+        'php': '.php', 'c': '.c', 'cpp': '.cpp',
+        'dockerfile': '', 'terraform': '.tf', 'kubernetes': '.yml', 'yaml': '.yml'
+    }
+    ext = ext_map.get(lenguaje, '.txt')
+    
+    # Usar un directorio temporal para poder nombrar el archivo "Dockerfile" y que el escáner lo reconozca
+    with tempfile.TemporaryDirectory() as tmpdir:
+        nombre_archivo = "Dockerfile" if lenguaje == "dockerfile" else f"temp{ext}"
+        tmp_path = os.path.join(tmpdir, nombre_archivo)
+        
+        with open(tmp_path, 'w', encoding='utf-8') as tmp:
+            tmp.write(codigo)
+            
+        try:
+            # Derivar al escáner correspondiente según el lenguaje
+            if lenguaje == 'dockerfile':
+                vulnerabilidades = iac_scanner.scan_dockerfile(tmp_path)
+            elif lenguaje == 'terraform':
+                vulnerabilidades = iac_scanner.scan_generico_iac(tmp_path, iac_scanner.REGLAS_TERRAFORM)
+            elif lenguaje in ['kubernetes', 'k8s', 'yaml']:
+                vulnerabilidades = iac_scanner.scan_generico_iac(tmp_path, iac_scanner.REGLAS_K8S)
+            else:
+                vulnerabilidades = sast.scan_sast(tmp_path)
+                
+            if vulnerabilidades:
+                logger.debug(f"🚨 Validación IA falló: Escáner detectó '{vulnerabilidades[0]['descripcion']}' en la sugerencia.")
+                return False
+            return True
+        except Exception as e:
+            logger.debug(f"Error validando código IA: {e}")
+            return True
 
 def get_remediation(vuln_type: str, code_snippet: str, language: str = "python") -> Optional[Dict[str, str]]:
     """
@@ -37,19 +105,17 @@ def get_remediation(vuln_type: str, code_snippet: str, language: str = "python")
         }
     """
     
-    # Intenta caché primero
     codigo_hash = hashlib.md5(code_snippet.encode('utf-8')).hexdigest()[:8]
     cache_key = f"remediate_{vuln_type}_{language}_{codigo_hash}"
-    resultado_cache = cache_global.get(cache_key)
-    if resultado_cache is not None:
-        logger.debug(f"✓ Caché hit: remediación para {vuln_type}")
-        return resultado_cache
+    if cache_key in ai_persistent_cache:
+        logger.debug(f"✓ Caché hit (persistente): remediación para {vuln_type}")
+        return ai_persistent_cache[cache_key]
     
     settings = config_manager.get_ai_settings()
     provider = settings.get("ai_provider", "gemini")
     model = settings.get("ai_model", "gemini-2.5-flash-lite")
 
-    prompt = f"""Actuá como un Ingeniero de Seguridad AppSec experto.
+    prompt_base = f"""Actuá como un Ingeniero de Seguridad AppSec experto.
 He detectado la siguiente vulnerabilidad en código {language}:
 
 🚨 **Tipo de Fallo:** {vuln_type}
@@ -75,29 +141,38 @@ código seguro
 
 No agregues saludos, explicaciones adicionales ni otro texto.
 """
+    prompt = prompt_base
 
-    try:
-        if provider == "gemini":
-            resultado = ask_gemini(prompt, model)
-        elif provider == "openai":
-            resultado = ask_openai(prompt, model)
-        elif provider == "anthropic":
-            resultado = ask_anthropic(prompt, model)
-        elif provider == "ollama":
-            resultado = ask_ollama(prompt, model)
-        else:
-            resultado = None
-        
-        if resultado:
-            # Cachea el resultado
-            cache_global.set(cache_key, resultado)
-            return resultado
-        else:
+    max_intentos = 2
+    for intento in range(max_intentos):
+        try:
+            if provider == "gemini":
+                resultado = ask_gemini(prompt, model)
+            elif provider == "openai":
+                resultado = ask_openai(prompt, model)
+            elif provider == "anthropic":
+                resultado = ask_anthropic(prompt, model)
+            elif provider == "ollama":
+                resultado = ask_ollama(prompt, model)
+            else:
+                resultado = None
+            
+            if resultado and resultado['exito']:
+                if validar_codigo_ia(resultado.get('codigo_corregido', ''), language):
+                    ai_persistent_cache[cache_key] = resultado
+                    save_ai_cache(ai_persistent_cache)
+                    return resultado
+                else:
+                    logger.debug(f"🔄 Intento {intento + 1}: La IA alucinó código vulnerable. Solicitando corrección...")
+                    prompt = prompt_base + "\n\n⚠️ IMPORTANTE: Tu respuesta anterior fue rechazada porque el [CÓDIGO_CORREGIDO] contenía configuraciones inseguras o vulnerabilidades detectadas por el escáner. Por favor, reescribe el código para que sea 100% seguro."
+            else:
+                return None
+                
+        except Exception as e:
+            logger.warning(f"Error generando remediación: {e}")
             return None
             
-    except Exception as e:
-        logger.warning(f"Error generando remediación: {e}")
-        return None
+    return None
 
 def parse_respuesta(text: str, proveedor: str) -> Dict[str, str]:
     """Parsea la respuesta de IA en estructura estándar."""
@@ -111,7 +186,6 @@ def parse_respuesta(text: str, proveedor: str) -> Dict[str, str]:
     }
     
     try:
-        # Extrae secciones
         if '[RIESGO]' in text:
             riesgo_start = text.find('[RIESGO]') + len('[RIESGO]')
             riesgo_end = text.find('[SOLUCIÓN]') if '[SOLUCIÓN]' in text else len(text)
@@ -261,35 +335,26 @@ def ask_ollama(prompt: str, model_name: str) -> Optional[Dict[str, str]]:
     
     return None
 
-# --- Bloque de Prueba ---
-
 if __name__ == "__main__":
-    from rich.console import Console
-    from rich.panel import Panel
-    from rich.text import Text
-
-    console = Console()
-    
     vuln_test = "Inyección SQL (CWE-89)"
     codigo_test = 'query = "SELECT * FROM users WHERE username = \'" + user_input + "\'"'
     
-    console.print("\n[bold cyan][*] Analizando vulnerabilidad...[/bold cyan]\n")
+    print("\n[*] Analizando vulnerabilidad...\n")
     
     resultado = get_remediation(vuln_test, codigo_test, "python")
     
     if resultado and resultado['exito']:
-        contenido = f"""
-[bold red]⚠️ RIESGO[/bold red]
+        print(f"""
+⚠️ RIESGO
 {resultado['riesgo']}
 
-[bold green]✅ SOLUCIÓN[/bold green]
+✅ SOLUCIÓN
 {resultado['solucion']}
 
-[bold blue]💻 CÓDIGO CORREGIDO[/bold blue]
+💻 CÓDIGO CORREGIDO
 {resultado['codigo_corregido']}
 
-[dim]🤖 Proveedor: {resultado['proveedor']}[/dim]
-        """
-        console.print(Panel(contenido, title="🛡️ REMEDIACIÓN GENERADA", border_style="cyan", padding=(1, 2)))
+🤖 Proveedor: {resultado['proveedor']}
+        """)
     else:
-        console.print("[bold red][!] No se pudo generar remediación[/bold red]")
+        print("[!] No se pudo generar remediación")

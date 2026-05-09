@@ -1,0 +1,9 @@
+{
+  "remediate_Inyección de código JavaScript_javascript_77080c94": {
+    "exito": true,
+    "riesgo": "Ejecución de código arbitrario en el lado del cliente, permitiendo robo de datos, manipulación del DOM o redirecciones maliciosas.",
+    "solucion": "Nunca uses `eval()` con entradas de usuario. Si necesitas procesar datos estructurados, usa `JSON.parse()` para JSON o la notación de corchetes para acceso a propiedades. Evita la ejecución dinámica de código a toda costa.",
+    "codigo_corregido": "```javascript\ntry {\n    const datosSeguros = JSON.parse(entradaUsuario);\n    // Usa datosSeguros de forma segura aquí, por ejemplo:\n    // console.log(datosSeguros.algunaPropiedad);\n} catch (e) {\n    console.error(\"Error: la entrada de usuario no es JSON válido o el formato es incorrecto.\");\n    // Manejar el error, por ejemplo, mostrando un mensaje al usuario o registrando el evento.\n}\n```",
+    "proveedor": "Gemini"
+  }
+}

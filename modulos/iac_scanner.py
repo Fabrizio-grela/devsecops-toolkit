@@ -8,6 +8,7 @@ import re
 import json
 import subprocess
 from typing import List, Dict, Optional, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils import logger, validar_ruta, leer_lineas_archivo, ResultadoAnalisis, cargar_devsecignore, IGNORAR_CARPETAS_COMUN
 
 try:
@@ -18,22 +19,22 @@ except ImportError:
 # Reglas específicas para detectar malas prácticas en Docker
 REGLAS_IAC = {
     "Imagen base sin versionar": {
-        "patron": r"(?i)^FROM\s+[a-zA-Z0-9_\-\/]+(:latest)?\s*$",
+        "patron": re.compile(r"(?i)^FROM\s+[a-zA-Z0-9_\-\/]+(:latest)?\s*$"),
         "mensaje": "Usa 'latest' o sin versión especificada",
         "severidad": "medio"
     },
     "Puerto SSH expuesto": {
-        "patron": r"(?i)^EXPOSE\s+.*?\b22\b",
+        "patron": re.compile(r"(?i)^EXPOSE\s+.*?\b22\b"),
         "mensaje": "Puerto SSH (22) potencialmente expuesto",
         "severidad": "alto"
     },
     "Secretos en variables de entorno": {
-        "patron": r"(?i)^(ENV|ARG)\s+.*(PASSWORD|SECRET|TOKEN|API_KEY|KEY|PASS)\s*=",
+        "patron": re.compile(r"(?i)^(ENV|ARG)\s+.*(PASSWORD|SECRET|TOKEN|API_KEY|KEY|PASS)\s*="),
         "mensaje": "Secretos potenciales en variables de entorno",
         "severidad": "critico"
     },
     "Root user": {
-        "patron": r"(?i)^USER\s+root",
+        "patron": re.compile(r"(?i)^USER\s+root"),
         "mensaje": "Contenedor ejecutándose como root",
         "severidad": "alto"
     },
@@ -42,32 +43,32 @@ REGLAS_IAC = {
 # Reglas para Kubernetes
 REGLAS_K8S = {
     "Contenedor Privilegiado": {
-        "patron": r"(?i)privileged:\s*true",
+        "patron": re.compile(r"(?i)privileged:\s*true"),
         "mensaje": "El contenedor se ejecuta en modo privilegiado (acceso total al nodo)",
         "severidad": "critico"
     },
     "Escalamiento de Privilegios": {
-        "patron": r"(?i)allowPrivilegeEscalation:\s*true",
+        "patron": re.compile(r"(?i)allowPrivilegeEscalation:\s*true"),
         "mensaje": "El contenedor permite escalamiento de privilegios",
         "severidad": "alto"
     },
     "Ejecución como Root": {
-        "patron": r"(?i)runAsNonRoot:\s*false",
+        "patron": re.compile(r"(?i)runAsNonRoot:\s*false"),
         "mensaje": "El pod permite la ejecución de contenedores como usuario root",
         "severidad": "alto"
     },
     "Red del Host Expuesta": {
-        "patron": r"(?i)hostNetwork:\s*true",
+        "patron": re.compile(r"(?i)hostNetwork:\s*true"),
         "mensaje": "El pod tiene acceso directo a la red del nodo anfitrión",
         "severidad": "critico"
     },
     "PID del Host Expuesto": {
-        "patron": r"(?i)hostPID:\s*true",
+        "patron": re.compile(r"(?i)hostPID:\s*true"),
         "mensaje": "El pod tiene acceso al espacio de procesos del host",
         "severidad": "critico"
     },
     "Imagen sin versionar (K8s)": {
-        "patron": r"(?i)image:\s+[a-zA-Z0-9_\-\/]+(:latest)?\s*$",
+        "patron": re.compile(r"(?i)image:\s+[a-zA-Z0-9_\-\/]+(:latest)?\s*$"),
         "mensaje": "Uso de la etiqueta 'latest' o sin versión en contenedores",
         "severidad": "medio"
     }
@@ -76,12 +77,12 @@ REGLAS_K8S = {
 # Reglas para Terraform
 REGLAS_TERRAFORM = {
     "Security Group Abierto": {
-        "patron": r"cidr_blocks\s*=\s*\[\s*[\"']0\.0\.0\.0/0[\"']\s*\]",
+        "patron": re.compile(r"cidr_blocks\s*=\s*\[\s*[\"']0\.0\.0\.0/0[\"']\s*\]"),
         "mensaje": "Regla de red abierta a todo internet (0.0.0.0/0)",
         "severidad": "alto"
     },
     "S3 sin restricción pública": {
-        "patron": r"(?i)acl\s*=\s*[\"']public-read[\"']",
+        "patron": re.compile(r"(?i)acl\s*=\s*[\"']public-read[\"']"),
         "mensaje": "Bucket S3 configurado con acceso de lectura público",
         "severidad": "alto"
     }
@@ -100,13 +101,11 @@ def scan_dockerfile(ruta_archivo: str) -> List[Dict]:
     for num_linea, linea in enumerate(lineas, 1):
         linea_strip = linea.strip()
         
-        # Detecta si cambia a usuario no-root
         if linea_strip.upper().startswith("USER ") and "root" not in linea_strip.lower():
             tiene_usuario_no_root = True
         
-        # Aplica todas las reglas
         for nombre_regla, info_regla in REGLAS_IAC.items():
-            if re.search(info_regla['patron'], linea_strip):
+            if info_regla['patron'].search(linea_strip):
                 hallazgos.append({
                     'tipo': nombre_regla,
                     'descripcion': info_regla['mensaje'],
@@ -117,8 +116,9 @@ def scan_dockerfile(ruta_archivo: str) -> List[Dict]:
                 })
                 logger.debug(f"🏗️  {nombre_regla} en {ruta_archivo}:{num_linea}")
     
-    # Análisis de contexto: Si es Dockerfile y nunca cambió de usuario, corre como root
-    if os.path.basename(ruta_archivo) == "Dockerfile" and not tiene_usuario_no_root:
+    # Análisis de contexto: Detecta extensiones .dev o .prod y verifica usuario
+    nombre_base = os.path.basename(ruta_archivo)
+    if (nombre_base == "Dockerfile" or nombre_base.startswith("Dockerfile.")) and not tiene_usuario_no_root:
         hallazgos.append({
             'tipo': 'Contenedor corre con privilegios ROOT',
             'descripcion': 'No se especificó ningún USER - ejecutará como root',
@@ -141,7 +141,7 @@ def scan_generico_iac(ruta_archivo: str, reglas: Dict[str, Any]) -> List[Dict]:
     for num_linea, linea in enumerate(lineas, 1):
         linea_strip = linea.strip()
         for nombre_regla, info_regla in reglas.items():
-            if re.search(info_regla['patron'], linea_strip):
+            if info_regla['patron'].search(linea_strip):
                 hallazgos.append({
                     'tipo': nombre_regla,
                     'descripcion': info_regla['mensaje'],
@@ -164,6 +164,20 @@ def obtener_remediacion(tipo_problema: str, codigo: str) -> Optional[Dict]:
         logger.warning(f"Error obteniendo remediación IaC: {e}")
         return None
 
+def analizar_archivo_iac(ruta_completa: str, archivo: str) -> List[Dict]:
+    """Escanea un archivo individual y retorna sus hallazgos."""
+    hallazgos_trivy = scan_con_trivy(ruta_completa)
+    if hallazgos_trivy is not None:
+        return hallazgos_trivy
+        
+    if archivo == "Dockerfile" or archivo.startswith("Dockerfile."):
+        return scan_dockerfile(ruta_completa)
+    elif archivo.endswith('.tf'):
+        return scan_generico_iac(ruta_completa, REGLAS_TERRAFORM)
+    elif archivo.endswith(('.yml', '.yaml')):
+        return scan_generico_iac(ruta_completa, REGLAS_K8S)
+    return []
+
 def scan_con_trivy(ruta_archivo: str) -> Optional[List[Dict]]:
     """Intenta usar Trivy CLI para un escaneo profundo de IaC."""
     hallazgos = []
@@ -180,7 +194,6 @@ def scan_con_trivy(ruta_archivo: str) -> Optional[List[Dict]]:
                 for res in datos['Results']:
                     if 'Misconfigurations' in res:
                         for misc in res['Misconfigurations']:
-                            # Mapear severidades
                             severidad = misc.get('Severity', 'MEDIUM').lower()
                             if severidad == 'high': severidad = 'alto'
                             elif severidad == 'critical': severidad = 'critico'
@@ -214,40 +227,29 @@ def analizar(ruta_proyecto: str) -> ResultadoAnalisis:
     archivos_escaneados = 0
     
     ignorados_totales = IGNORAR_CARPETAS_COMUN | cargar_devsecignore(ruta_proyecto)
+    archivos_a_escanear = []
     
-    # Busca archivos de infraestructura
     for raiz, directorios, archivos in os.walk(ruta_proyecto):
-        # Filtra carpetas ignoradas
         directorios[:] = [d for d in directorios 
                          if d not in ignorados_totales]
         
         for archivo in archivos:
             if archivo in ignorados_totales:
                 continue
-            ruta_completa = os.path.join(raiz, archivo)
-            hallazgos = []
             
             es_iac = archivo == "Dockerfile" or archivo.startswith("Dockerfile.") or archivo.endswith(('.tf', '.yml', '.yaml'))
             
             if es_iac:
-                # 1. Intenta usar Trivy primero
-                hallazgos_trivy = scan_con_trivy(ruta_completa)
-                if hallazgos_trivy is not None:
-                    hallazgos = hallazgos_trivy
-                else:
-                    # 2. Fallback al escáner nativo basado en Regex
-                    if archivo == "Dockerfile" or archivo.startswith("Dockerfile."):
-                        hallazgos = scan_dockerfile(ruta_completa)
-                    elif archivo.endswith('.tf'):
-                        hallazgos = scan_generico_iac(ruta_completa, REGLAS_TERRAFORM)
-                    elif archivo.endswith(('.yml', '.yaml')):
-                        hallazgos = scan_generico_iac(ruta_completa, REGLAS_K8S)
-            
-            if hallazgos:
-                hallazgos_totales.extend(hallazgos)
+                ruta_completa = os.path.join(raiz, archivo)
+                archivos_a_escanear.append((ruta_completa, archivo))
                 
-            if archivo == "Dockerfile" or archivo.startswith("Dockerfile.") or archivo.endswith(('.yml', '.yaml', '.tf')):
-                archivos_escaneados += 1
+    with ThreadPoolExecutor() as executor:
+        futuros = [executor.submit(analizar_archivo_iac, r, a) for r, a in archivos_a_escanear]
+        for futuro in as_completed(futuros):
+            res = futuro.result()
+            if res:
+                hallazgos_totales.extend(res)
+            archivos_escaneados += 1
     
     if not hallazgos_totales:
         msg = f"✅ Análisis completado: Infraestructura segura. {archivos_escaneados} archivo(s) auditado(s)"
@@ -258,7 +260,6 @@ def analizar(ruta_proyecto: str) -> ResultadoAnalisis:
     resultado_msg += f"{'='*50}\n"
     resultado_msg += f"⚠️ Se detectaron {len(hallazgos_totales)} problemas de configuración:\n"
     
-    # Agrupa por severidad
     por_severidad = {}
     for h in hallazgos_totales:
         sev = h['severidad']
@@ -271,7 +272,6 @@ def analizar(ruta_proyecto: str) -> ResultadoAnalisis:
     
     resultado_msg += "\n"
     
-    # Objeto final que retornaremos
     analisis = ResultadoAnalisis('iac_scanner', True, "", hallazgos_totales)
     
     for idx, h in enumerate(hallazgos_totales, 1):
