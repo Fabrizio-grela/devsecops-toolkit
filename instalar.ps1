@@ -1,23 +1,21 @@
 # Script de Instalación Automática - DevSec Toolkit
 $InstallDir = "$env:USERPROFILE\DevSecToolkit"
-$ExePath = ".\dist\devsec.exe"
 
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host "  Instalador de DevSecOps Toolkit" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 
-# 1. Verificar que el ejecutable existe
-if (-Not (Test-Path $ExePath)) {
-    Write-Host "[X] Error: No se encontro devsec.exe en la carpeta /dist." -ForegroundColor Red
-    Write-Host "Asegurate de ejecutar este script desde la carpeta principal del proyecto." -ForegroundColor Yellow
-    Pause
-    Exit
-}
+Write-Host "[*] Instalando dependencias de Python..."
+pip install -r requirements.txt
 
-# 2. Crear la carpeta base y copiar el archivo
+# 1. Crear la carpeta base
 Write-Host "[*] Creando directorio en $InstallDir..."
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-Copy-Item -Path $ExePath -Destination "$InstallDir\devsec.exe" -Force
+
+# 2. Crear wrapper devsec.bat para ejecutar el código fuente
+$ProjectPath = (Get-Location).Path
+$BatContent = "@echo off`npython `"$ProjectPath\main.py`" %*"
+Set-Content -Path "$InstallDir\devsec.bat" -Value $BatContent
 Write-Host "[OK] Archivo copiado exitosamente." -ForegroundColor Green
 
 # 3. Editar las Variables de Entorno (PATH) automaticamente

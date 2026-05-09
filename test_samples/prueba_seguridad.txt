@@ -1,5 +1,5 @@
-Este es un archivo de configuración falso para probar el escáner.
-Aca abajo hay secretos que un dev se olvidó de borrar:
+# Este es un archivo para probar el escáner de secretos
 
-api_key = "1234567890abcdefGHIJKL"
-aws_token = "AKIA1234567890ABCDEF"
+aws_access_token = "AKIAABCDEFGHIJKLMNOP"
+
+api_key = "abcdefghijklmnopqrstuvwxyz"
