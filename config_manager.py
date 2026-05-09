@@ -102,7 +102,19 @@ def load_config():
 
 def get_api_key(service):
     config = load_config()
-    return config.get("api_keys", {}).get(service, "")
+    key = config.get("api_keys", {}).get(service, "")
+    
+    # Fallback a variables de entorno si no está en el JSON (ideal para CI/CD)
+    if not key:
+        env_mapping = {
+            "gemini": "GEMINI_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "anthropic": "ANTHROPIC_API_KEY",
+            "virustotal": "VT_API_KEY"
+        }
+        key = os.getenv(env_mapping.get(service, ""), "")
+        
+    return key
 
 def get_ai_settings():
     config = load_config()
