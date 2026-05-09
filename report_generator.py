@@ -456,13 +456,10 @@ class GeneradorReportes:
         </html>
         """
         
-        # Minificación nativa: Elimina espacios en blanco y saltos de línea entre etiquetas HTML
-        html_minificado = re.sub(r'>\s+<', '><', html.strip())
-        
         ruta_archivo = os.path.join(self.directorio, f"{nombre_reporte}.html")
         try:
             with open(ruta_archivo, 'w', encoding='utf-8') as f:
-                f.write(html_minificado)
+                f.write(html)
             logger.info(f"✅ Reporte HTML guardado: {ruta_archivo}")
             return ruta_archivo
         except Exception as e:

@@ -101,6 +101,10 @@ def load_config():
         return initial_setup()
 
 def get_api_key(service):
+    env_key = os.environ.get(f"{service.upper()}_API_KEY")
+    if env_key:
+        return env_key
+        
     config = load_config()
     return config.get("api_keys", {}).get(service, "")
 
