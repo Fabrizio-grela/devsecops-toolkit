@@ -1,0 +1,12 @@
+# Dependencias Core
+requests>=2.31.0
+aiohttp>=3.9.3
+boto3>=1.34.0
+
+# Dependencias de IA (Opcionales para el usuario, pero recomendadas)
+google-genai>=0.3.0
+openai>=1.12.0
+anthropic>=0.18.0
+
+# Testing
+pytest>=8.0.0

@@ -1,10 +1,20 @@
 import json
 import os
+import base64
+import sys
 
 CONFIG_FILE = "config.json"
 
 def initial_setup():
     """Asistente interactivo que se ejecuta solo la primera vez"""
+    # Evita bloquear en CI/CD o entornos Docker no interactivos
+    if not sys.stdout.isatty() or os.environ.get("CI"):
+        return {
+            "api_keys": {},
+            "settings": {"ai_provider": "gemini", "ai_model": "gemini-2.5-flash"},
+            "paths": {}
+        }
+        
     print("\n" + "="*50)
     print("🚀 BIENVENIDO AL DEVSECOPS TOOLKIT v2.0 🚀")
     print("="*50)
@@ -20,7 +30,7 @@ def initial_setup():
     opcion_ia = input("\n[?] Elegí una opción (1/2/3/4) [Default: 1]: ").strip()
 
     ai_provider = "gemini"
-    ai_model = "gemini-1.5-flash"
+    ai_model = "gemini-2.5-flash"
     ai_key = ""
 
     if opcion_ia == "2":
@@ -38,7 +48,7 @@ def initial_setup():
     else:
         # Default a Gemini si pone 1 o le pifia a la tecla
         ai_provider = "gemini"
-        ai_model = "gemini-1.5-flash"
+        ai_model = "gemini-2.5-flash"
         print("\n[ℹ️] Podés conseguir tu API Key de Gemini gratis en: https://aistudio.google.com/")
         ai_key = input("[🔑] Pegá tu API Key de Gemini: ").strip()
 
@@ -76,8 +86,20 @@ def initial_setup():
 def load_config():
     if not os.path.exists(CONFIG_FILE):
         return initial_setup()
-    with open(CONFIG_FILE, "r") as f:
-        return json.load(f)
+    
+    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+        content = f.read().strip()
+        
+    try:
+        if content.startswith("{"):
+            return json.loads(content)
+        else:
+            # Intenta decodificar de Base64 si está ofuscado
+            decoded = base64.b64decode(content).decode('utf-8')
+            return json.loads(decoded)
+    except Exception:
+        # Si el archivo está corrupto, pide configurarlo de nuevo
+        return initial_setup()
 
 def get_api_key(service):
     config = load_config()
@@ -86,6 +108,30 @@ def get_api_key(service):
 def get_ai_settings():
     config = load_config()
     return config.get("settings", {})
+
+def delete_config():
+    """Elimina el archivo de configuración para borrar las credenciales."""
+    try:
+        if os.path.exists(CONFIG_FILE):
+            os.remove(CONFIG_FILE)
+        return True
+    except Exception:
+        return False
+
+def obfuscate_config():
+    """Ofusca el archivo de configuración para evitar lectura en texto plano."""
+    try:
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+            # Si no está ofuscado (comienza con llave de JSON), lo ofusca
+            if content.startswith("{"):
+                encoded = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                    f.write(encoded)
+        return True
+    except Exception:
+        return False
 
 # Bloque de prueba
 if __name__ == "__main__":

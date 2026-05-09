@@ -1,4 +1,4 @@
-# 🛡️ DevSecOps Toolkit v1.0
+# 🛡️ DevSecOps Toolkit v2.0
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
@@ -15,7 +15,7 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 ### 🧩 Módulos Incluidos:
 
 * **🔑 Secrets & Leaks:** Escanea archivos en busca de claves de API, tokens de AWS, contraseñas y otros secretos "hardcoded" que nunca deberían estar en el código.
-* **☢️ SAST (Static Application Security Testing): Auditoría multilingüe (Python, JS, Java, PHP, C/C++) para detectar funciones peligrosas, inyecciones de código y fallos de lógica.
+* **☢️ SAST (Static Application Security Testing):** Auditoría multilingüe (Python, JS, Java, PHP, C/C++) para detectar funciones peligrosas, inyecciones de código y fallos de lógica.
 * **🐛 SCA (Software Composition Analysis):** Revisa tu archivo `requirements.txt` y compara tus librerías con bases de datos de vulnerabilidades conocidas (CVE).
 * **🏗️ IaC Scanner (Infrastructure as Code):** Audita archivos `Dockerfile` y configuraciones de infraestructura para detectar configuraciones inseguras (ej: correr como root o exponer puertos sensibles).
 * **🌐 Threat Intel:** Integración con **VirusTotal** para verificar si las IPs o dominios mencionados en el código tienen reportes de actividad maliciosa.
@@ -27,7 +27,7 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 La herramienta está diseñada para ser instalada como un comando global del sistema, permitiéndote ejecutar `devsec` en cualquier carpeta.
 
 ### 🪟 Windows
-1. Descarga el repositorio y asegúrate de tener el archivo `devsec.exe` en la carpeta `dist/`.
+1. Descarga el repositorio y asegúrate de tener Python instalado.
 2. Haz clic derecho sobre el archivo `instalar.ps1` y selecciona **"Ejecutar con PowerShell"**.
 3. Reinicia tu terminal (CMD o PowerShell).
 4. ¡Listo! Escribe `devsec` para empezar.
@@ -37,8 +37,22 @@ La herramienta está diseñada para ser instalada como un comando global del sis
 2. Otorga permisos de ejecución al script:
    ```bash
    chmod +x instalar.sh
+   ```
 3. Ejecuta el instalador: `instalar.sh`
 4. Ahora puedes ejecutar la herramienta simplemente escribiendo `devsec`.
+
+### 🐳 Usando Docker (Recomendado para la comunidad)
+Si no deseas instalar dependencias, Python ni Trivy en tu máquina, puedes usar el contenedor preconfigurado:
+
+1. Construye la imagen localmente:
+   ```bash
+   docker build -t devsecops-toolkit .
+   ```
+2. Ejecuta el escáner montando el directorio actual dentro del contenedor:
+   ```bash
+   docker run --rm -v $(pwd):/app devsecops-toolkit --todo
+   ```
+   *(En Windows usa `${PWD}` en PowerShell o `%cd%` en CMD en lugar de `$(pwd)`)*
 
 💻 Modo de Uso
 DevSecOps Toolkit cuenta con dos formas de ejecución:
