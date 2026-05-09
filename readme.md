@@ -24,22 +24,47 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 
 ## 🛠️ Instalación
 
-La herramienta está diseñada para ser instalada como un comando global del sistema, permitiéndote ejecutar `devsec` en cualquier carpeta.
+🪟 Windows (Recomendado)
+1. Andá a la sección de Releases de este repositorio.
 
+<<<<<<< HEAD
 ### 🪟 Windows
 1. Descarga el repositorio y asegúrate de tener Python instalado.
 2. Haz clic derecho sobre el archivo `instalar.ps1` y selecciona **"Ejecutar con PowerShell"**.
 3. Reinicia tu terminal (CMD o PowerShell).
 4. ¡Listo! Escribe `devsec` para empezar.
+=======
+2. Descargá el archivo devsec.exe.
 
-### 🐧 Linux & 🍎 macOS
-1. Abre una terminal en la carpeta del proyecto.
-2. Otorga permisos de ejecución al script:
-   ```bash
+3. Importante: Al ser un ejecutable de Python sin firma digital, Windows Defender podría mostrar una advertencia. Hacé clic en "Más información" y luego en "Ejecutar de todas formas".
+
+4. Para usarlo como comando global, mové el .exe a una carpeta y agregá esa ruta a tus Variables de Entorno (PATH).
+
+🐧 Linux & 🍎 macOS (Código Fuente)
+1. Cloná el repositorio:
+
+   git clone https://github.com/Fabrizio-grela/devsecops-toolkit.git
+
+   cd devsecops-toolkit
+
+2. Instalá las dependencias necesarias:
+
+   pip install -r requirements.txt
+
+3. Dale permisos al instalador y ejecutalo:
+>>>>>>> main
+
    chmod +x instalar.sh
+<<<<<<< HEAD
    ```
 3. Ejecuta el instalador: `instalar.sh`
 4. Ahora puedes ejecutar la herramienta simplemente escribiendo `devsec`.
+=======
+   
+   ./instalar.sh
+
+4. ¡Listo! Ahora podés ejecutar la herramienta simplemente escribiendo devsec en cualquier terminal.
+>>>>>>> main
 
 ### 🐳 Usando Docker (Recomendado para la comunidad)
 Si no deseas instalar dependencias, Python ni Trivy en tu máquina, puedes usar el contenedor preconfigurado:
