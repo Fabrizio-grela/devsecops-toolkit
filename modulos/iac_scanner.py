@@ -230,8 +230,8 @@ def analizar(ruta_proyecto: str) -> ResultadoAnalisis:
     archivos_a_escanear = []
     
     for raiz, directorios, archivos in os.walk(ruta_proyecto):
-        directorios[:] = [d for d in directorios 
-                         if d not in ignorados_totales]
+        directorios[:] = [d for d in directorios
+                         if d not in ignorados_totales and not d.endswith('.egg-info')]
         
         for archivo in archivos:
             if archivo in ignorados_totales:

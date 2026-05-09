@@ -169,7 +169,7 @@ def analizar(ruta_proyecto: str) -> ResultadoAnalisis:
     tareas_paquetes = []
     
     for raiz, directorios, archivos in os.walk(ruta_proyecto):
-        directorios[:] = [d for d in directorios if d not in ignorados_totales]
+        directorios[:] = [d for d in directorios if d not in ignorados_totales and not d.endswith('.egg-info')]
         
         if "requirements.txt" in archivos and "requirements.txt" not in ignorados_totales:
             ruta_completa = os.path.join(raiz, "requirements.txt")

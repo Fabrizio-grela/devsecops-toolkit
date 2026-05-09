@@ -116,7 +116,7 @@ def obtener_archivos_proyecto(
     try:
         for raiz, directorios, archivos_dir in os.walk(ruta):
             # Filtra carpetas ignoradas in-place para no entrar
-            directorios[:] = [d for d in directorios if d not in ignorados_totales]
+            directorios[:] = [d for d in directorios if d not in ignorados_totales and not d.endswith('.egg-info')]
             
             for archivo in archivos_dir:
                 if archivo in ignorados_totales:

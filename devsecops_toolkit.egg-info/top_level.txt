@@ -1,6 +1,0 @@
-ai_handler
-config_manager
-main
-modulos
-report_generator
-utils
