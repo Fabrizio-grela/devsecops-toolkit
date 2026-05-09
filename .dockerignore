@@ -1,0 +1,10 @@
+.git
+.gitignore
+.github
+__pycache__
+venv
+.venv
+reportes
+config.json
+.ai_cache.json
+*.egg-info

@@ -5,5 +5,12 @@
     "solucion": "Nunca uses `eval()` con entradas de usuario. Si necesitas procesar datos estructurados, usa `JSON.parse()` para JSON o la notación de corchetes para acceso a propiedades. Evita la ejecución dinámica de código a toda costa.",
     "codigo_corregido": "```javascript\ntry {\n    const datosSeguros = JSON.parse(entradaUsuario);\n    // Usa datosSeguros de forma segura aquí, por ejemplo:\n    // console.log(datosSeguros.algunaPropiedad);\n} catch (e) {\n    console.error(\"Error: la entrada de usuario no es JSON válido o el formato es incorrecto.\");\n    // Manejar el error, por ejemplo, mostrando un mensaje al usuario o registrando el evento.\n}\n```",
     "proveedor": "Gemini"
+  },
+  "remediate_Secreto expuesto: API Key Genérica_python_c817649a": {
+    "exito": true,
+    "riesgo": "La clave API sensible está codificada directamente en el código fuente, exponiéndola a cualquier persona con acceso al repositorio de código y pudiendo ser utilizada para accesos no autorizados.",
+    "solucion": "Almacena la clave en variables de entorno o un gestor de secretos, y cárgala dinámicamente en tiempo de ejecución; frameworks como Django/Flask pueden usar `python-dotenv` para desarrollo y variables de entorno para producción.",
+    "codigo_corregido": "```python\nimport os\n# Para desarrollo local, puedes usar un archivo .env y 'python-dotenv':\n# from dotenv import load_dotenv\n# load_dotenv() # Carga las variables del archivo .env\n\n# Accede a la clave API desde una variable de entorno\n# Asegúrate de que esta variable de entorno esté configurada en tu entorno de despliegue.\nAPI_KEY = os.getenv(\"API_KEY\")\n\nif API_KEY is None:\n    raise ValueError(\"La variable de entorno API_KEY no está configurada.\")\n\n# Usa API_KEY de forma segura aquí\n# print(f\"La API Key es: {API_KEY}\")\n```",
+    "proveedor": "Gemini"
   }
 }

@@ -1,10 +1,12 @@
 # 🛡️ DevSecOps Toolkit v2.0
 
-![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
-![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.9+-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Platform">
+</p>
 
-**DevSecOps Toolkit** es una potente suite de seguridad diseñada para automatizar el análisis estático y la detección de amenazas en entornos de desarrollo. Desarrollada pensando en la velocidad y la eficiencia, la herramienta utiliza procesamiento multi-núcleo para auditar proyectos complejos en segundos.
+**DevSecOps Toolkit** es una suite de seguridad integral y de alto rendimiento, diseñada para automatizar la detección de vulnerabilidades y malas prácticas en el ciclo de vida del desarrollo de software. Construida con un enfoque en la velocidad, utiliza **procesamiento multi-núcleo** para auditar proyectos complejos en segundos y ofrece **remediación automática con IA** para acelerar la corrección de fallos.
 
 ---
 
@@ -39,11 +41,7 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 
    cd devsecops-toolkit
 
-2. Instalá las dependencias necesarias:
-
-   pip install -r requirements.txt
-
-3. Dale permisos al instalador y ejecutalo:
+2. Dale permisos al instalador y ejecútalo con `sudo`:
 
    chmod +x instalar.sh
    
@@ -51,52 +49,69 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 
 4. ¡Listo! Ahora podés ejecutar la herramienta simplemente escribiendo `devsec` en cualquier terminal.
 
-### 🐳 Usando Docker (Recomendado para la comunidad)
+### 🐳 Usando Docker (Recomendado para entornos aislados y CI/CD)
 Si no deseas instalar dependencias, Python ni Trivy en tu máquina, puedes usar el contenedor preconfigurado:
 
-1. Construye la imagen localmente:
+> **Requisito previo:** Asegurate de tener [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y en ejecución en tu sistema.
+
+1. Descarga la imagen desde Docker Hub (reemplaza `tu-usuario` con tu nombre de usuario):
    ```bash
-   docker build -t devsecops-toolkit .
+   docker pull tu-usuario/devsecops-toolkit:latest
    ```
-2. Ejecuta el escáner montando el directorio actual dentro del contenedor:
+   O, si prefieres construirla localmente:
    ```bash
-   docker run --rm -v $(pwd):/app devsecops-toolkit --todo
+   docker build -t tu-usuario/devsecops-toolkit:latest .
+   ```
+
+2. Ejecuta el escáner montando el directorio de tu proyecto dentro del contenedor:
+   ```bash
+   docker run --rm -v $(pwd):/scan_target tu-usuario/devsecops-toolkit:latest /scan_target --todo
    ```
    *(En Windows usa `${PWD}` en PowerShell o `%cd%` en CMD en lugar de `$(pwd)`)*
 
 ---
 
-## ⚙️ Configuración y Variables de Entorno
+## ⚙️ Configuración
 
-En el primer uso local, un asistente interactivo te guiará para configurar las API Keys. Si prefieres usar Docker o automatizar el Toolkit, puedes pasar las credenciales directamente como **Variables de Entorno**:
-* `VT_API_KEY`: Para el motor de VirusTotal.
-* `GEMINI_API_KEY`, `OPENAI_API_KEY` o `ANTHROPIC_API_KEY`: Para sugerencias de remediación con IA.
-* `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: Para el escáner de Cloud Security.
+### Asistente Interactivo
+La primera vez que ejecutes `devsec` localmente, un asistente te guiará para configurar las API Keys necesarias (IA y VirusTotal) y las guardará en un archivo `config.json`.
 
-💻 Modo de Uso
+### Variables de Entorno (Prioridad Alta)
+Para entornos automatizados (Docker, GitHub Actions), el toolkit prioriza las variables de entorno sobre el archivo `config.json`.
+
+*   `VT_API_KEY`: Para el motor de VirusTotal.
+*   `GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`: Para el proveedor de IA que desees usar.
+*   `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`: Para el escáner de Cloud Security.
+
+---
+
+## 💻 Modo de Uso
 DevSecOps Toolkit cuenta con dos formas de ejecución:
 
-1. Modo Interactivo (Recomendado)
-Simplemente escribe el comando solo y sigue las instrucciones en pantalla: `devsec`
-La herramienta te guiará para elegir la ruta del proyecto y qué motores ejecutar mediante un menú numérico.
+### 1. Modo Interactivo (Recomendado para uso local)
+Ejecuta el comando sin argumentos para iniciar el asistente:
+```bash
+devsec
+```
+La herramienta te guiará para elegir la ruta del proyecto y qué motores ejecutar mediante un menú.
 
-2. Modo CLI (Avanzado)
-Puedes pasar argumentos directamente para automatizar escaneos en pipelines de CI/CD:
-* `devsec . --todo`: Escanea la carpeta actual con todos los motores.
-* `devsec /ruta/proyecto --leaks --sast`: Ejecuta solo los módulos de secretos y código SAST.
+### 2. Modo CLI (Para automatización y CI/CD)
+Pasa argumentos directamente para una ejecución silenciosa.
+
+*   `devsec . --todo`: Escanea la carpeta actual con todos los motores.
+*   `devsec /ruta/proyecto --leaks --sast`: Ejecuta solo los módulos de secretos y SAST.
+*   `devsec https://github.com/usuario/repo.git --sca`: Clona un repositorio y ejecuta solo el análisis de dependencias.
+
+### Ignorando Archivos (`.devsecignore`)
+Crea un archivo `.devsecignore` en la raíz de tu proyecto para listar archivos o carpetas que deseas excluir del escaneo (funciona igual que un `.gitignore`).
 
 ## 📊 Reportes Interactivos
 
 Al finalizar el escaneo, se genera un **reporte HTML standalone y moderno**. Incluye un resumen visual de hallazgos por severidad, fragmentos de código vulnerable resaltados, y las mitigaciones de código seguro generadas por la IA con un botón para **📋 Copiar al Portapapeles**.
 
-⚙️ Requisitos Técnicos
-Python 3.9+ (solo si corres el código fuente).
-
-Multi-core CPU: Optimizado para procesadores modernos (aprovecha todos los hilos disponibles).
-
-Conexión a Internet: Requerida únicamente para el módulo de Threat Intel (VirusTotal).
-
 ⚖️ Disclaimer
 Este software fue desarrollado con fines educativos y de auditoría ética. El autor no se hace responsable por el uso indebido de esta herramienta en sistemas sin autorización previa.
 
-Desarrollado de forma independiente como herramienta de código abierto.
+---
+
+Desarrollado de forma independiente como una herramienta de código abierto. ¡Las contribuciones son bienvenidas!
