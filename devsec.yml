@@ -2,9 +2,9 @@ name: DevSecOps Toolkit Scan
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "v2-development" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "v2-development" ]
 
 jobs:
   security-scan:
