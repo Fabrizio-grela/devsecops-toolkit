@@ -14,11 +14,13 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 
 ### 🧩 Módulos Incluidos:
 
-* **🔑 Secrets & Leaks:** Escanea archivos en busca de claves de API, tokens de AWS, contraseñas y otros secretos "hardcoded" que nunca deberían estar en el código.
-* **☢️ SAST (Static Application Security Testing):** Auditoría multilingüe (Python, JS, Java, PHP, C/C++) para detectar funciones peligrosas, inyecciones de código y fallos de lógica.
-* **🐛 SCA (Software Composition Analysis):** Revisa tu archivo `requirements.txt` y compara tus librerías con bases de datos de vulnerabilidades conocidas (CVE).
-* **🏗️ IaC Scanner (Infrastructure as Code):** Audita archivos `Dockerfile` y configuraciones de infraestructura para detectar configuraciones inseguras (ej: correr como root o exponer puertos sensibles).
-* **🌐 Threat Intel:** Integración con **VirusTotal** para verificar si las IPs o dominios mencionados en el código tienen reportes de actividad maliciosa.
+* **🔑 Secrets & Leaks:** Escanea archivos en busca de claves de API, tokens de AWS, contraseñas y otros secretos "hardcoded".
+* **☢️ SAST (Static Application Security Testing):** Auditoría multilingüe (Python, JS, Java, PHP, C/C++) para detectar inyecciones de código y fallos lógicos.
+* **🐛 SCA (Software Composition Analysis):** Analiza dependencias (`requirements.txt`, `package.json`, `pom.xml`, `go.mod`) buscando vulnerabilidades (CVEs).
+* **🏗️ IaC Scanner:** Audita archivos `Dockerfile`, manifiestos de Kubernetes y Terraform para detectar configuraciones inseguras.
+* **🌐 Threat Intel:** Integración con **VirusTotal** para verificar si IPs extraídas del código son maliciosas.
+* **☁️ Cloud Security (AWS):** Audita directamente tu cuenta de Amazon Web Services en busca de Buckets S3 públicos o usuarios IAM sin MFA.
+* **🤖 Remediación Automática (IA):** Genera parches y código seguro al instante utilizando modelos de IA (Gemini, ChatGPT, Claude u Ollama).
 
 ---
 
@@ -62,19 +64,30 @@ Si no deseas instalar dependencias, Python ni Trivy en tu máquina, puedes usar 
    ```
    *(En Windows usa `${PWD}` en PowerShell o `%cd%` en CMD en lugar de `$(pwd)`)*
 
+---
+
+## ⚙️ Configuración y Variables de Entorno
+
+En el primer uso local, un asistente interactivo te guiará para configurar las API Keys. Si prefieres usar Docker o automatizar el Toolkit, puedes pasar las credenciales directamente como **Variables de Entorno**:
+* `VT_API_KEY`: Para el motor de VirusTotal.
+* `GEMINI_API_KEY`, `OPENAI_API_KEY` o `ANTHROPIC_API_KEY`: Para sugerencias de remediación con IA.
+* `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: Para el escáner de Cloud Security.
+
 💻 Modo de Uso
 DevSecOps Toolkit cuenta con dos formas de ejecución:
 
 1. Modo Interactivo (Recomendado)
-Simplemente escribe el comando solo y sigue las instrucciones en pantalla: devsec
-La herramienta te pedirá la ruta del proyecto y te permitirá elegir qué motores ejecutar mediante un menú numérico.
+Simplemente escribe el comando solo y sigue las instrucciones en pantalla: `devsec`
+La herramienta te guiará para elegir la ruta del proyecto y qué motores ejecutar mediante un menú numérico.
 
 2. Modo CLI (Avanzado)
 Puedes pasar argumentos directamente para automatizar escaneos en pipelines de CI/CD:
+* `devsec . --todo`: Escanea la carpeta actual con todos los motores.
+* `devsec /ruta/proyecto --leaks --sast`: Ejecuta solo los módulos de secretos y código SAST.
 
-devsec . --todo: Escanea la carpeta actual con todos los motores.
+## 📊 Reportes Interactivos
 
-devsec /ruta/proyecto --leaks --sast: Ejecuta solo los módulos de secretos y código.
+Al finalizar el escaneo, se genera un **reporte HTML standalone y moderno**. Incluye un resumen visual de hallazgos por severidad, fragmentos de código vulnerable resaltados, y las mitigaciones de código seguro generadas por la IA con un botón para **📋 Copiar al Portapapeles**.
 
 ⚙️ Requisitos Técnicos
 Python 3.9+ (solo si corres el código fuente).
