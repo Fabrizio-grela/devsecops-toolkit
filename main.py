@@ -37,22 +37,21 @@ def menu_interactivo(ruta_predefinida=None):
     mostrar_banner()
     logger.info(f"{Colors.GREEN}📁 Bienvenido al modo interactivo de DevSecOps Toolkit\n{Colors.RESET}")
 
+    # Detectar si estamos en Docker y ajustar el comportamiento
+    is_in_docker = os.path.exists('/.dockerenv')
+    
     if ruta_predefinida:
-        ruta = ruta_predefinida
-        print(f"📁 Ruta detectada: {Colors.CYAN}{ruta}{Colors.RESET}")
+        default_ruta = ruta_predefinida
+    elif is_in_docker:
+        default_ruta = "/data"
     else:
-        # Detectar si estamos en Docker y ajustar el comportamiento
-        is_in_docker = os.path.exists('/.dockerenv')
-        if is_in_docker:
-            prompt_text = f"👉 Ingresá ruta o URL de GitHub ({Colors.YELLOW}Tip: Usá /data para analizar la carpeta actual{Colors.RESET}): "
-            default_ruta = "/data"
-        else:
-            prompt_text = "👉 Ingresá ruta o URL de GitHub (Enter para carpeta actual): "
-            default_ruta = "."
-
-        ruta = input(prompt_text).strip()
-        if not ruta:
-            ruta = default_ruta
+        default_ruta = "."
+        
+    prompt_text = "👉 Ingresá ruta o URL de GitHub (Enter para escanear la carpeta actual): "
+    ruta = input(prompt_text).strip()
+    if not ruta:
+        ruta = default_ruta
+        print(f"📁 Ruta a escanear: {Colors.CYAN}{ruta}{Colors.RESET}")
 
     if not ruta.startswith(("http://", "https://", "git@")) and not validar_ruta(ruta):
         logger.error("Ruta inválida. Abortando.")
@@ -146,14 +145,6 @@ def main():
     
     args = parser.parse_args()
     
-    hay_flags = any([args.leaks, args.sast, args.sca, args.intel, args.iac, args.aws, args.todo])
-    
-    if not hay_flags:
-        args = menu_interactivo(ruta_predefinida=args.ruta)
-    else:
-        mostrar_banner()
-        if not args.ruta: args.ruta = "."
-            
     # --- Cargar configuración inicial (IA y VirusTotal) ---
     config_path = "config.json"
     if os.path.exists('/.dockerenv'):
@@ -179,6 +170,14 @@ def main():
                 key_value = api_keys.get(key_name)
                 if key_value and not os.getenv(env_var):
                     os.environ[env_var] = key_value
+
+    hay_flags = any([args.leaks, args.sast, args.sca, args.intel, args.iac, args.aws, args.todo])
+    
+    if not hay_flags:
+        args = menu_interactivo(ruta_predefinida=args.ruta)
+    else:
+        mostrar_banner()
+        if not args.ruta: args.ruta = "."
 
     ruta_original = args.ruta
     repo_temporal = None
