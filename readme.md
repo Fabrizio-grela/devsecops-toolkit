@@ -51,22 +51,26 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 
 ### 🐳 Usando Docker (Recomendado para entornos aislados y CI/CD)
 Si no deseas instalar dependencias, Python ni Trivy en tu máquina, puedes usar el contenedor preconfigurado:
-
 > **Requisito previo:** Asegurate de tener [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y en ejecución en tu sistema.
+#### Opción A: Usar la imagen pública desde Docker Hub
+1. Descargá la imagen oficial desde Docker Hub. **(¡Recordá reemplazar `tu-usuario-de-dockerhub`!)**
+```bash
+docker pull fabriziogrela/devsecops-toolkit:latest
+```
 
-1. Descarga la imagen desde Docker Hub (reemplaza `tu-usuario` con tu nombre de usuario):
-   ```bash
-   docker pull tu-usuario/devsecops-toolkit:latest
-   ```
-   O, si prefieres construirla localmente:
-   ```bash
-   docker build -t tu-usuario/devsecops-toolkit:latest .
-   ```
+#### Opción B: Construir la imagen localmente
+Si preferís construir la imagen directamente desde el código fuente:
+```bash
+# Esto crea una imagen local llamada 'devsecops-toolkit:latest'
+docker build -t fabriziogrela/devsecops-toolkit:latest .
+```
 
-2. Ejecuta el escáner montando el directorio de tu proyecto dentro del contenedor:
-   ```bash
-   docker run --rm -v $(pwd):/scan_target tu-usuario/devsecops-toolkit:latest /scan_target --todo
-   ```
+### Cómo ejecutar el escáner con Docker
+Una vez que tengas la imagen (ya sea descargada o construida localmente), ejecutá el escáner montando el directorio de tu proyecto dentro del contenedor:
+```bash
+# Reemplaza 'fabriziogrela' si tu usuario de Docker Hub es otro.
+docker run --rm -v $(pwd):/scan_target fabriziogrela/devsecops-toolkit:latest /scan_target --todo
+```
    *(En Windows usa `${PWD}` en PowerShell o `%cd%` en CMD en lugar de `$(pwd)`)*
 
 ---

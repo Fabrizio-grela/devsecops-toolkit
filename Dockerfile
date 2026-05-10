@@ -2,15 +2,23 @@
 FROM python:3.10-slim
 
 # Instala las dependencias del sistema (git para clonar repos y Trivy para IaC)
+# Se instala Trivy desde el repositorio oficial para mayor estabilidad.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Dependencias para el repo de Trivy y para la herramienta
     git \
     wget \
+    apt-transport-https \
+    gnupg \
+    lsb-release \
+    # Instalar la clave GPG de Trivy
+    && wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - \
+    # Agregar el repositorio de Trivy
+    && echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" > /etc/apt/sources.list.d/trivy.list \
+    # Actualizar e instalar Trivy
+    && apt-get update \
+    && apt-get install -y trivy \
+    # Limpiar caché para reducir el tamaño de la imagen
     && rm -rf /var/lib/apt/lists/*
-
-# Instala Trivy
-RUN wget https://github.com/aquasecurity/trivy/releases/download/v0.51.1/trivy_0.51.1_Linux-64bit.deb && \
-    dpkg -i trivy_0.51.1_Linux-64bit.deb && \
-    rm trivy_0.51.1_Linux-64bit.deb
 
 # Establece el directorio de trabajo
 WORKDIR /app
