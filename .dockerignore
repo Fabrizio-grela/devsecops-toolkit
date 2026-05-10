@@ -8,3 +8,7 @@ reportes
 config.json
 .ai_cache.json
 *.egg-info
+devsec.bat
+devsec.sh
+readme.md
+*.ps1

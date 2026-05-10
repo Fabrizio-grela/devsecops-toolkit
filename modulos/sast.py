@@ -57,6 +57,11 @@ RULES = {
     ]
 }
 
+# Enlazar extensiones adicionales a las reglas de JavaScript
+RULES['.ts'] = RULES['.js']
+RULES['.tsx'] = RULES['.js']
+RULES['.jsx'] = RULES['.js']
+
 def scan_sast(ruta_archivo: str) -> List[Dict]:
     """Escanea un archivo en busca de vulnerabilidades."""
     vulnerabilidades = []

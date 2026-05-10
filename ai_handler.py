@@ -19,27 +19,36 @@ try:
 except ImportError:
     genai = None
 
-AI_CACHE_FILE = ".ai_cache.json"
+def get_ai_cache_path() -> str:
+    """Calcula la ruta del caché basándose en la ubicación de la configuración."""
+    base_dir = os.path.dirname(config_manager._get_effective_path()) or "."
+    return os.path.join(base_dir, ".ai_cache.json")
+
+_ai_cache_memory = None
 
 def load_ai_cache() -> dict:
-    """Carga el caché de IA desde el disco."""
-    if os.path.exists(AI_CACHE_FILE):
+    """Carga el caché de IA desde el disco usando la ruta dinámica."""
+    global _ai_cache_memory
+    if _ai_cache_memory is not None:
+        return _ai_cache_memory
+        
+    cache_path = get_ai_cache_path()
+    _ai_cache_memory = {}
+    if os.path.exists(cache_path):
         try:
-            with open(AI_CACHE_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                _ai_cache_memory = json.load(f)
         except Exception:
             pass
-    return {}
+    return _ai_cache_memory
 
 def save_ai_cache(cache_data: dict):
-    """Guarda el caché de IA en el disco."""
+    """Guarda el caché de IA en el disco en la misma carpeta que config.json."""
     try:
-        with open(AI_CACHE_FILE, 'w', encoding='utf-8') as f:
+        with open(get_ai_cache_path(), 'w', encoding='utf-8') as f:
             json.dump(cache_data, f, ensure_ascii=False, indent=2)
     except Exception:
         pass
-
-ai_persistent_cache = load_ai_cache()
 
 def validar_codigo_ia(codigo: str, lenguaje: str) -> bool:
     """Pasa el código sugerido por la IA por el motor SAST/IaC para evitar alucinaciones vulnerables."""
@@ -107,9 +116,11 @@ def get_remediation(vuln_type: str, code_snippet: str, language: str = "python")
     
     codigo_hash = hashlib.md5(code_snippet.encode('utf-8')).hexdigest()[:8]
     cache_key = f"remediate_{vuln_type}_{language}_{codigo_hash}"
-    if cache_key in ai_persistent_cache:
+    
+    ai_cache = load_ai_cache()
+    if cache_key in ai_cache:
         logger.debug(f"✓ Caché hit (persistente): remediación para {vuln_type}")
-        return ai_persistent_cache[cache_key]
+        return ai_cache[cache_key]
     
     settings = config_manager.get_ai_settings()
     provider = settings.get("ai_provider", "gemini")
@@ -159,8 +170,8 @@ No agregues saludos, explicaciones adicionales ni otro texto.
             
             if resultado and resultado['exito']:
                 if validar_codigo_ia(resultado.get('codigo_corregido', ''), language):
-                    ai_persistent_cache[cache_key] = resultado
-                    save_ai_cache(ai_persistent_cache)
+                    ai_cache[cache_key] = resultado
+                    save_ai_cache(ai_cache)
                     return resultado
                 else:
                     logger.debug(f"🔄 Intento {intento + 1}: La IA alucinó código vulnerable. Solicitando corrección...")
