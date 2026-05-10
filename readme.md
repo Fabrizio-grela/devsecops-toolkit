@@ -67,9 +67,24 @@ docker build -t fabriziogrela/devsecops-toolkit:latest .
 
 ### Cómo ejecutar el escáner con Docker
 Una vez que tengas la imagen (ya sea descargada o construida localmente), ejecutá el escáner montando el directorio de tu proyecto dentro del contenedor:
+
+#### Modo CLI (para CI/CD o scripts)
+
+*   **🐧 Linux / macOS (bash):**
+    ```bash
+    docker run --rm -v $(pwd):/scan_target fabriziogrela/devsecops-toolkit:latest /scan_target --todo
+    ```
+*   **🪟 Windows (PowerShell):**
+    ```powershell
+    docker run --rm -v ${PWD}:/scan_target fabriziogrela/devsecops-toolkit:latest /scan_target --todo
+    ```
+
+#### Modo Interactivo (para usar el menú)
+
+*   **🪟 Windows (PowerShell) / 🐧 Linux / 🍎 macOS:**
 ```bash
-# Reemplaza 'fabriziogrela' si tu usuario de Docker Hub es otro.
-docker run --rm -v $(pwd):/scan_target fabriziogrela/devsecops-toolkit:latest /scan_target --todo
+# El flag -it es para modo interactivo. El volumen 'devsec-config' guarda tu config.json.
+docker run -it --rm -v "$(pwd):/scan_target" -v devsec-config:/data fabriziogrela/devsecops-toolkit:latest
 ```
    *(En Windows usa `${PWD}` en PowerShell o `%cd%` en CMD en lugar de `$(pwd)`)*
 

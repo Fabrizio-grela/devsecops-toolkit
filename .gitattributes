@@ -1,0 +1,5 @@
+# Forzar que los archivos .sh siempre usen LF (Linux)
+*.sh text eol=lf
+
+# Dejar que Git maneje el resto automáticamente
+* text=auto

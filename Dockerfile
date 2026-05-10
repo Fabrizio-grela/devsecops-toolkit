@@ -37,4 +37,4 @@ COPY . .
 ENTRYPOINT ["python", "main.py"]
 
 # Define un comando por defecto para mostrar la ayuda si no se pasan argumentos
-CMD ["--help"]
+CMD []

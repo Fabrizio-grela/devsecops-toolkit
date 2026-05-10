@@ -4,9 +4,20 @@ import base64
 import sys
 
 CONFIG_FILE = "config.json"
+_config_path_override = None
 
-def initial_setup():
+def set_config_path(path: str):
+    """Sets a global override for the config file path for the current session."""
+    global _config_path_override
+    _config_path_override = path
+
+def _get_effective_path() -> str:
+    """Gets the effective config path, prioritizing the override."""
+    return _config_path_override or CONFIG_FILE
+
+def initial_setup() -> dict:
     """Asistente interactivo que se ejecuta solo la primera vez"""
+    config_path = _get_effective_path()
     # Evita bloquear en entornos Docker no interactivos
     if not sys.stdout.isatty():
         return {
@@ -74,28 +85,45 @@ def initial_setup():
         }
     }
 
-    with open(CONFIG_FILE, "w") as f:
+    with open(config_path, "w") as f:
         json.dump(config, f, indent=4)
 
-    print("\n[✅] ¡Todo listo! Configuración guardada en 'config.json'.")
+    print(f"\n[✅] ¡Todo listo! Configuración guardada en '{config_path}'.")
     print("="*50 + "\n")
     
     return config
 
 def load_config():
-    if not os.path.exists(CONFIG_FILE):
+    config_path = _get_effective_path()
+    if not os.path.exists(config_path):
         return initial_setup()
     
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         content = f.read().strip()
         
     try:
         if content.startswith("{"):
-            return json.loads(content)
+            config = json.loads(content)
         else:
             # Intenta decodificar de Base64 si está ofuscado
             decoded = base64.b64decode(content).decode('utf-8')
-            return json.loads(decoded)
+            config = json.loads(decoded)
+            
+        # Validación de integridad de la configuración
+        if "settings" not in config or "api_keys" not in config:
+            return initial_setup()
+            
+        ai_provider = config["settings"].get("ai_provider")
+        if not ai_provider:
+            return initial_setup()
+            
+        # Verifica que la key del proveedor elegido exista (a menos que sea local como ollama o esté en variables de entorno)
+        if ai_provider != "ollama":
+            if not config["api_keys"].get(ai_provider) and not os.getenv(f"{ai_provider.upper()}_API_KEY"):
+                print(f"\n[!] Falta la API Key para {ai_provider}. Lanzando el Asistente de Configuración...")
+                return initial_setup()
+                
+        return config
     except Exception:
         # Si el archivo está corrupto, pide configurarlo de nuevo
         return initial_setup()
@@ -114,23 +142,25 @@ def get_ai_settings():
 
 def delete_config():
     """Elimina el archivo de configuración para borrar las credenciales."""
+    config_path = _get_effective_path()
     try:
-        if os.path.exists(CONFIG_FILE):
-            os.remove(CONFIG_FILE)
+        if os.path.exists(config_path):
+            os.remove(config_path)
         return True
     except Exception:
         return False
 
 def obfuscate_config():
     """Ofusca el archivo de configuración para evitar lectura en texto plano."""
+    config_path = _get_effective_path()
     try:
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
                 content = f.read().strip()
             # Si no está ofuscado (comienza con llave de JSON), lo ofusca
             if content.startswith("{"):
                 encoded = base64.b64encode(content.encode('utf-8')).decode('utf-8')
-                with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                with open(config_path, "w", encoding="utf-8") as f:
                     f.write(encoded)
         return True
     except Exception:

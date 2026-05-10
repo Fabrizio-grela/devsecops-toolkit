@@ -13,8 +13,16 @@ import config_manager
 from utils import logger, validar_ruta, ResultadoAnalisis
 from report_generator import GeneradorReportes
 
+class Colors:
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+
 def mostrar_banner():
-    print("""
+    print(f"""{Colors.CYAN}{Colors.BOLD}
     ██████╗ ███████╗██╗   ██╗███████╗███████╗ ██████╗
     ██╔══██╗██╔════╝██║   ██║██╔════╝██╔════╝██╔════╝
     ██║  ██║█████╗  ██║   ██║███████╗█████╗  ██║      
@@ -22,31 +30,45 @@ def mostrar_banner():
     ██████╔╝███████╗ ╚████╔╝ ███████║███████╗╚██████╗
     ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝
            DevSecOps Toolkit v2.0 - Multi-Core
-    --------------------------------------------------
+    --------------------------------------------------{Colors.RESET}
     """)
 
-def menu_interactivo():
+def menu_interactivo(ruta_predefinida=None):
     mostrar_banner()
-    logger.info("📁 Bienvenido al modo interactivo de DevSecOps Toolkit\n")
-    
-    ruta = input("👉 Ingresá ruta o URL de GitHub (Enter para carpeta actual): ").strip()
-    if not ruta: ruta = "."
-    
+    logger.info(f"{Colors.GREEN}📁 Bienvenido al modo interactivo de DevSecOps Toolkit\n{Colors.RESET}")
+
+    if ruta_predefinida:
+        ruta = ruta_predefinida
+        print(f"📁 Ruta detectada: {Colors.CYAN}{ruta}{Colors.RESET}")
+    else:
+        # Detectar si estamos en Docker y ajustar el comportamiento
+        is_in_docker = os.path.exists('/.dockerenv')
+        if is_in_docker:
+            prompt_text = f"👉 Ingresá ruta o URL de GitHub ({Colors.YELLOW}Tip: Usá /data para analizar la carpeta actual{Colors.RESET}): "
+            default_ruta = "/data"
+        else:
+            prompt_text = "👉 Ingresá ruta o URL de GitHub (Enter para carpeta actual): "
+            default_ruta = "."
+
+        ruta = input(prompt_text).strip()
+        if not ruta:
+            ruta = default_ruta
+
     if not ruta.startswith(("http://", "https://", "git@")) and not validar_ruta(ruta):
         logger.error("Ruta inválida. Abortando.")
         sys.exit(1)
         
-    print("\n🛠️  ¿Qué motor querés ejecutar?")
-    print("  1. 🔑 Secrets & Leaks")
-    print("  2. ☢️  Código SAST (Multi-lenguaje)")
-    print("  3. 🐛 Dependencias SCA")
-    print("  4. 🏗️  Infraestructura IaC")
-    print("  5. 🌐 Threat Intel (VirusTotal)")
-    print("  6. ☁️  Cloud Security (AWS)")
-    print("  7. 🚀 ESCANEO COMPLETO")
+    print(f"\n{Colors.CYAN}🛠️  ¿Qué motor querés ejecutar?{Colors.RESET}")
+    print(f"  {Colors.GREEN}1. 🔑 Secrets & Leaks{Colors.RESET}")
+    print(f"  {Colors.GREEN}2. ☢️  Código SAST (Multi-lenguaje){Colors.RESET}")
+    print(f"  {Colors.GREEN}3. 🐛 Dependencias SCA{Colors.RESET}")
+    print(f"  {Colors.GREEN}4. 🏗️  Infraestructura IaC{Colors.RESET}")
+    print(f"  {Colors.GREEN}5. 🌐 Threat Intel (VirusTotal){Colors.RESET}")
+    print(f"  {Colors.GREEN}6. ☁️  Cloud Security (AWS){Colors.RESET}")
+    print(f"  {Colors.BOLD}{Colors.YELLOW}7. 🚀 ESCANEO COMPLETO{Colors.RESET}")
     
-    opcion = input("\n👉 Elegí una opción (1-7): ").strip()
-    nombre_reporte = input("👉 Ingresá un nombre para los reportes (Enter para autogenerado): ").strip()
+    opcion = input(f"\n{Colors.CYAN}👉 Elegí una opción (1-7): {Colors.RESET}").strip()
+    nombre_reporte = input(f"{Colors.CYAN}👉 Ingresá un nombre para los reportes (Enter para autogenerado): {Colors.RESET}").strip()
     args = argparse.Namespace(ruta=ruta, leaks=False, sast=False, sca=False, intel=False, iac=False, aws=False, todo=False, nombre_reporte=nombre_reporte)
     
     if opcion == '1': args.leaks = True
@@ -81,6 +103,35 @@ def ejecutar_modulo(nombre: str, nombre_archivo: str, ruta: str) -> ResultadoAna
         logger.error(f"Error en {nombre}: {e}")
         return ResultadoAnalisis(nombre, False, f"Error: {str(e)}")
 
+def procesar_ruta_reporte(entrada_usuario: str) -> tuple:
+    """Procesa la entrada del usuario y mapea alias a carpetas del host en Docker."""
+    if not entrada_usuario:
+        return "/data/reportes", "✅ Reporte guardado en la carpeta del proyecto (reportes/)"
+        
+    entrada = entrada_usuario.strip().lower()
+    
+    alias_map = {
+        'desktop': ('Desktop', 'tu Escritorio'),
+        'escritorio': ('Desktop', 'tu Escritorio'),
+        'downloads': ('Downloads', 'tus Descargas'),
+        'descargas': ('Downloads', 'tus Descargas'),
+        'documents': ('Documents', 'tus Documentos'),
+        'documentos': ('Documents', 'tus Documentos')
+    }
+    
+    if entrada in alias_map:
+        nombre_carpeta, nombre_amigable = alias_map[entrada]
+        # Rutas a verificar dentro del contenedor en /host
+        rutas_a_probar = [f"/host/{nombre_carpeta}", f"/host/{entrada.capitalize()}"]
+        for ruta in rutas_a_probar:
+            if os.path.exists(ruta):
+                return ruta, f"✅ Reporte guardado en {nombre_amigable}"
+                
+    if entrada and os.path.exists(entrada):
+        return entrada, f"✅ Reporte guardado en {entrada}"
+        
+    return "/data/reportes", "✅ Reporte guardado en la carpeta del proyecto (reportes/)"
+
 def main():
     parser = argparse.ArgumentParser(description='DevSecOps Toolkit.')
     parser.add_argument('ruta', nargs='?', help='Ruta del proyecto')
@@ -93,19 +144,41 @@ def main():
     parser.add_argument('--todo', action='store_true')
     parser.add_argument('-n', '--nombre-reporte', type=str, default='', help='Nombre personalizado para los reportes')
     
-    if len(sys.argv) == 1:
-        args = menu_interactivo()
+    args = parser.parse_args()
+    
+    hay_flags = any([args.leaks, args.sast, args.sca, args.intel, args.iac, args.aws, args.todo])
+    
+    if not hay_flags:
+        args = menu_interactivo(ruta_predefinida=args.ruta)
     else:
-        args = parser.parse_args()
         mostrar_banner()
         if not args.ruta: args.ruta = "."
             
     # --- Cargar configuración inicial (IA y VirusTotal) ---
-    # Esto invoca el asistente interactivo si no existe config.json
+    config_path = "config.json"
+    if os.path.exists('/.dockerenv'):
+        config_path = "/app/config.json"
+        logger.debug("Usando ruta de configuración para Docker: /app/config.json")
+
+    # Establece la ruta de configuración de forma global para que todos los módulos la usen
+    config_manager.set_config_path(config_path)
+
+    # load_config se encarga de:
+    # 1. Cargar desde config_path si existe.
+    # 2. Si no, lanzar el asistente interactivo para crear el archivo.
+    # Las variables de entorno tienen prioridad sobre este archivo.
     config = config_manager.load_config()
-    vt_key = config.get("api_keys", {}).get("virustotal", "")
-    if vt_key and not os.getenv("VT_API_KEY"):
-        os.environ["VT_API_KEY"] = vt_key
+
+    # Poblar variables de entorno desde el archivo de config si no están ya seteadas.
+    # Esto mantiene la prioridad de las variables de entorno sobre el archivo.
+    if config:
+        # API Keys
+        api_keys = config.get("api_keys", {})
+        if api_keys:
+            for key_name, env_var in [("virustotal", "VT_API_KEY"), ("gemini", "GEMINI_API_KEY"), ("openai", "OPENAI_API_KEY"), ("anthropic", "ANTHROPIC_API_KEY")]:
+                key_value = api_keys.get(key_name)
+                if key_value and not os.getenv(env_var):
+                    os.environ[env_var] = key_value
 
     ruta_original = args.ruta
     repo_temporal = None
@@ -135,13 +208,16 @@ def main():
     if args.todo or args.aws: tareas.append(("Cloud Security AWS", "aws_scanner"))
 
     if (args.todo or args.intel) and not os.getenv("VT_API_KEY"):
-        logger.warning("Se requiere API Key de VirusTotal")
-        
         if sys.stdout.isatty() and not os.environ.get("CI"):
-            clave = input("👉 Pegá tu API Key (Enter para saltar): ").strip()
+            print(f"\n{Colors.YELLOW}ℹ️  El módulo de Threat Intel requiere una API Key de VirusTotal.{Colors.RESET}")
+            clave = input(f"{Colors.CYAN}👉 Pegá tu API Key (o apretá Enter para omitir este módulo): {Colors.RESET}").strip()
             if clave:
                 os.environ["VT_API_KEY"] = clave
                 tareas.append(("Threat Intel", "threat_intel"))
+            else:
+                logger.info("Módulo de Threat Intel omitido por falta de API Key.")
+        else:
+            logger.warning("Módulo de Threat Intel omitido: No se encontró VT_API_KEY en variables de entorno.")
     elif args.todo or args.intel:
         tareas.append(("Threat Intel", "threat_intel"))
 
@@ -195,12 +271,19 @@ def main():
         
         # --- Opciones de guardado ---
         directorio_reportes = "reportes"
+        mensaje_salida = "✅ Reporte guardado en la carpeta local"
         
         if sys.stdout.isatty() and not os.environ.get("CI"):
             print("\n" + "-"*60)
-            resp_dir = input("📁 ¿Dónde querés guardar el reporte HTML? (Enter para 'reportes/'): ").strip()
-            if resp_dir:
-                directorio_reportes = resp_dir
+            if os.path.exists('/.dockerenv'):
+                resp_dir = input("📁 ¿Dónde querés guardar el reporte? (Ej: Desktop, Downloads o Enter para defecto): ").strip()
+                directorio_reportes, mensaje_salida = procesar_ruta_reporte(resp_dir)
+            else:
+                resp_dir = input("📁 ¿Dónde querés guardar el reporte HTML? (Enter para 'reportes/'): ").strip()
+                if resp_dir:
+                    directorio_reportes = resp_dir
+        elif os.path.exists('/.dockerenv'):
+            directorio_reportes, mensaje_salida = procesar_ruta_reporte("")
 
         logger.info("\n📊 Generando reporte HTML...")
         gen = GeneradorReportes(directorio_reportes=directorio_reportes)
@@ -209,7 +292,11 @@ def main():
         
         print(f"\n{'='*60}")
         print(f"📋 REPORTE GENERADO:")
-        print(f"  🌐 HTML: {ruta_html}")
+        if os.path.exists('/.dockerenv'):
+            print(f"  {mensaje_salida}")
+            print(f"  🌐 Archivo: {os.path.basename(ruta_html)}")
+        else:
+            print(f"  🌐 HTML: {ruta_html}")
         print(f"{'='*60}\n")
         
         # --- Limpieza de credenciales ---
