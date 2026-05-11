@@ -28,65 +28,24 @@ El toolkit actúa como un "perro guardián" que analiza tu proyecto desde difere
 
 ## 🛠️ Instalación
 
-### 🪟 Windows
-1. Descarga el repositorio y asegurate de tener Python instalado (Opcional: andá a la sección de Releases y descargá el devsec.exe).
-2. Si usás el código fuente, hacé clic derecho sobre el archivo `instalar.ps1` y seleccioná **"Ejecutar con PowerShell"**.
-3. Reiniciá tu terminal (CMD o PowerShell).
-4. ¡Listo! Escribí `devsec` para empezar.
+**DevSecOps Toolkit es 100% basado en Docker.** No necesitas instalar Python, dependencias locales ni configurar tu entorno.
 
-🐧 Linux & 🍎 macOS (Código Fuente)
-1. Cloná el repositorio:
+> **Requisito previo único:** Asegúrate de tener Docker Desktop instalado y en ejecución en tu sistema.
 
-   git clone https://github.com/Fabrizio-grela/devsecops-toolkit.git
+### Instalación Rápida (One-Liners)
+Descarga el lanzador directamente en la raíz de tu proyecto usando la terminal:
 
-   cd devsecops-toolkit
-
-2. Dale permisos al instalador y ejecútalo con `sudo`:
-
-   chmod +x instalar.sh
-   
-   ./instalar.sh
-
-4. ¡Listo! Ahora podés ejecutar la herramienta simplemente escribiendo `devsec` en cualquier terminal.
-
-### 🐳 Usando Docker (Recomendado para entornos aislados y CI/CD)
-Si no deseas instalar dependencias, Python ni Trivy en tu máquina, puedes usar el contenedor preconfigurado:
-> **Requisito previo:** Asegurate de tener [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado y en ejecución en tu sistema.
-#### Opción A: Usar la imagen pública desde Docker Hub
-1. Descargá la imagen oficial desde Docker Hub. **(¡Recordá reemplazar `tu-usuario-de-dockerhub`!)**
-```bash
-docker pull fabriziogrela/devsecops-toolkit:latest
-```
-
-#### Opción B: Construir la imagen localmente
-Si preferís construir la imagen directamente desde el código fuente:
-```bash
-# Esto crea una imagen local llamada 'devsecops-toolkit:latest'
-docker build -t fabriziogrela/devsecops-toolkit:latest .
-```
-
-### Cómo ejecutar el escáner con Docker
-Una vez que tengas la imagen (ya sea descargada o construida localmente), ejecutá el escáner montando el directorio de tu proyecto dentro del contenedor:
-
-#### Modo CLI (para CI/CD o scripts)
-
-*   **🐧 Linux / macOS (bash):**
+*   **🐧 Linux / 🍎 macOS (bash):**
     ```bash
-    docker run --rm -v $(pwd):/scan_target fabriziogrela/devsecops-toolkit:latest /scan_target --todo
+    curl -O https://raw.githubusercontent.com/Fabrizio-grela/devsecops-toolkit/main/devsec.sh && chmod +x devsec.sh
     ```
 *   **🪟 Windows (PowerShell):**
     ```powershell
-    docker run --rm -v ${PWD}:/scan_target fabriziogrela/devsecops-toolkit:latest /scan_target --todo
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Fabrizio-grela/devsecops-toolkit/main/devsec.bat" -OutFile "devsec.bat"
     ```
 
-#### Modo Interactivo (para usar el menú)
-
-*   **🪟 Windows (PowerShell) / 🐧 Linux / 🍎 macOS:**
-```bash
-# El flag -it es para modo interactivo. El volumen 'devsec-config' guarda tu config.json.
-docker run -it --rm -v "$(pwd):/scan_target" -v devsec-config:/data fabriziogrela/devsecops-toolkit:latest
-```
-   *(En Windows usa `${PWD}` en PowerShell o `%cd%` en CMD en lugar de `$(pwd)`)*
+### Descarga Manual (Releases)
+Si prefieres no usar la terminal, puedes ir a la pestaña de **Releases** en este repositorio de GitHub y descargar directamente el archivo `devsec.bat` (para Windows) o `devsec.sh` (para Linux/Mac) en la carpeta de tu proyecto.
 
 ---
 
@@ -105,21 +64,22 @@ Para entornos automatizados (Docker, GitHub Actions), el toolkit prioriza las va
 ---
 
 ## 💻 Modo de Uso
-DevSecOps Toolkit cuenta con dos formas de ejecución:
+Una vez que tengas el lanzador (`devsec.bat` o `devsec.sh`) en tu carpeta de proyecto, la imagen de Docker se descargará y ejecutará automáticamente la primera vez que lo corras.
 
 ### 1. Modo Interactivo (Recomendado para uso local)
-Ejecuta el comando sin argumentos para iniciar el asistente:
-```bash
-devsec
-```
-La herramienta te guiará para elegir la ruta del proyecto y qué motores ejecutar mediante un menú.
+Ejecuta el comando sin argumentos para iniciar el menú interactivo:
+
+*   **🪟 Windows:** `.\devsec.bat`
+*   **🐧 Linux / 🍎 macOS:** `./devsec.sh`
+
+La herramienta te guiará para configurar tus API Keys, confirmará la ruta del proyecto y te permitirá elegir qué motores ejecutar.
 
 ### 2. Modo CLI (Para automatización y CI/CD)
-Pasa argumentos directamente para una ejecución silenciosa.
+Pasa argumentos directamente al lanzador para una ejecución silenciosa sin menús.
 
-*   `devsec . --todo`: Escanea la carpeta actual con todos los motores.
-*   `devsec /ruta/proyecto --leaks --sast`: Ejecuta solo los módulos de secretos y SAST.
-*   `devsec https://github.com/usuario/repo.git --sca`: Clona un repositorio y ejecuta solo el análisis de dependencias.
+*   **Escaneo completo:** `.\devsec.bat /data --todo`
+*   **Módulos específicos:** `./devsec.sh /data --leaks --sast`
+*   **Escanear repositorio remoto:** `.\devsec.bat https://github.com/usuario/repo.git --sca`
 
 ### Ignorando Archivos (`.devsecignore`)
 Crea un archivo `.devsecignore` en la raíz de tu proyecto para listar archivos o carpetas que deseas excluir del escaneo (funciona igual que un `.gitignore`).
