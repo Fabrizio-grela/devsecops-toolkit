@@ -145,7 +145,8 @@ def delete_config():
     config_path = _get_effective_path()
     try:
         if os.path.exists(config_path):
-            os.remove(config_path)
+            with open(config_path, "w", encoding="utf-8") as f:
+                f.write("{}")
         return True
     except Exception:
         return False

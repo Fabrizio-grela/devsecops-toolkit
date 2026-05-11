@@ -38,7 +38,7 @@ def menu_interactivo(ruta_predefinida=None):
     logger.info(f"{Colors.GREEN}📁 Bienvenido al modo interactivo de DevSecOps Toolkit\n{Colors.RESET}")
 
     # Detectar si estamos en Docker y ajustar el comportamiento
-    is_in_docker = os.path.exists('/.dockerenv')
+    is_in_docker = os.path.exists('/host')
     
     if ruta_predefinida:
         default_ruta = ruta_predefinida
@@ -147,7 +147,7 @@ def main():
     
     # --- Cargar configuración inicial (IA y VirusTotal) ---
     config_path = "config.json"
-    if os.path.exists('/.dockerenv'):
+    if os.path.exists('/host'):
         config_path = "/app/config.json"
         logger.debug("Usando ruta de configuración para Docker: /app/config.json")
 
@@ -274,14 +274,14 @@ def main():
         
         if sys.stdout.isatty() and not os.environ.get("CI"):
             print("\n" + "-"*60)
-            if os.path.exists('/.dockerenv'):
+            if os.path.exists('/host'):
                 resp_dir = input("📁 ¿Dónde querés guardar el reporte? (Ej: Desktop, Downloads o Enter para defecto): ").strip()
                 directorio_reportes, mensaje_salida = procesar_ruta_reporte(resp_dir)
             else:
                 resp_dir = input("📁 ¿Dónde querés guardar el reporte HTML? (Enter para 'reportes/'): ").strip()
                 if resp_dir:
                     directorio_reportes = resp_dir
-        elif os.path.exists('/.dockerenv'):
+        elif os.path.exists('/host'):
             directorio_reportes, mensaje_salida = procesar_ruta_reporte("")
 
         logger.info("\n📊 Generando reporte HTML...")
@@ -291,7 +291,7 @@ def main():
         
         print(f"\n{'='*60}")
         print(f"📋 REPORTE GENERADO:")
-        if os.path.exists('/.dockerenv'):
+        if os.path.exists('/host'):
             print(f"  {mensaje_salida}")
             print(f"  🌐 Archivo: {os.path.basename(ruta_html)}")
         else:
