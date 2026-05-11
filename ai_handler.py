@@ -20,7 +20,9 @@ except ImportError:
     genai = None
 
 def get_ai_cache_path() -> str:
-    """Calcula la ruta del caché basándose en la ubicación de la configuración."""
+    """Calcula la ruta del caché basándose en los volúmenes montados de Docker."""
+    if os.path.exists('/.dockerenv') and os.path.exists('/host/.devsec'):
+        return '/host/.devsec/.ai_cache.json'
     base_dir = os.path.dirname(config_manager._get_effective_path()) or "."
     return os.path.join(base_dir, ".ai_cache.json")
 
